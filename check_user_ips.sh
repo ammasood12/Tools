@@ -328,7 +328,7 @@ fi
 # Violation Analysis Conclusion
 # ---------------------------
 echo
-echo -e "${PURPLE}==================== Violation Analysis ======================${NC}"
+echo -e "${CYAN}==================== Violation Analysis ======================${NC}"
 echo
 
 # Analyze based on selected period
