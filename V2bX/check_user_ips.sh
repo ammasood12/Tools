@@ -293,6 +293,7 @@ sort "$events_file" > "$events_file.sorted" 2>/dev/null
 # Process events for detailed overlap analysis
 active_ips=()
 active_sessions=()
+overlap_start=""
 overlap_num=1
 
 if [ -s "$events_file.sorted" ]; then
@@ -338,7 +339,7 @@ if [ -s "$events_file.sorted" ]; then
                 [ $overlap_seconds -gt 1800 ] && long_overlaps=$((long_overlaps + 1))
                 
                 ((overlap_num++))
-            }
+            fi
             
             # Remove from active sessions
             for i in "${!active_ips[@]}"; do
