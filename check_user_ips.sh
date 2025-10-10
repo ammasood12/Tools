@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-# V2bX User Activity Checker (Improved Location & Performance)
-# Enhanced with better IP location accuracy and performance optimizations
+# V2bX User Activity Checker (Fixed Version)
+# Fixed timestamp parsing issues
 # ==========================================
 
 # ---------------------------
@@ -24,8 +24,8 @@ echo -e " 3) All logs"
 read -p "Enter option [1-3]: " option
 
 case "$option" in
-  1) period="--since '1 day ago'" ;;
-  2) period="--since '1 week ago'" ;;
+  1) period="1 day ago" ;;
+  2) period="1 week ago" ;;
   3) period="" ;;
   *) echo -e "${RED}Invalid option${NC}"; exit 1 ;;
 esac
@@ -46,11 +46,19 @@ logfile="/root/user_sessions.txt"
 location_cache_file="/tmp/ip_locations.txt"
 
 # ---------------------------
-# Extract IPs and timestamps from V2bX logs
+# Extract IPs and timestamps from V2bX logs (FIXED)
 # ---------------------------
-journalctl -u V2bX -o cat $period | grep "$uuid" \
-| awk '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
-> "$tmpfile"
+if [ -n "$period" ]; then
+    # With time period
+    journalctl -u V2bX --since "$period" -o cat | grep "$uuid" \
+    | awk '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    > "$tmpfile"
+else
+    # All logs
+    journalctl -u V2bX -o cat | grep "$uuid" \
+    | awk '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    > "$tmpfile"
+fi
 
 total_connections=$(wc -l < "$tmpfile")
 if [ "$total_connections" -eq 0 ]; then
@@ -154,18 +162,6 @@ get_ip_location() {
         fi
     fi
     
-    # Method 3: ipapi.is (another alternative)
-    if [ -z "$location" ] || [ "$location" = "null" ]; then
-        response=$(curl -s -m 2 "https://api.ipapi.is/?q=$ip")
-        city=$(echo "$response" | jq -r '.location.city // empty')
-        region=$(echo "$response" | jq -r '.location.region // empty')
-        country=$(echo "$response" | jq -r '.location.country // empty')
-        
-        if [ -n "$city" ] && [ "$city" != "null" ]; then
-            location="$city, $region, $country"
-        fi
-    fi
-    
     # Final fallback
     if [ -z "$location" ] || [ "$location" = "null" ]; then
         location="Unknown location"
@@ -214,7 +210,7 @@ while IFS='|' read -r count ip start_time end_time; do
         location="Unknown location"
     fi
     
-    # Format timestamps
+    # Format timestamps (with better error handling)
     start_fmt=$(date -d "$start_time" +"%Y/%m/%d %H:%M" 2>/dev/null || echo "$start_time")
     end_fmt=$(date -d "$end_time" +"%Y/%m/%d %H:%M" 2>/dev/null || echo "$end_time")
     
