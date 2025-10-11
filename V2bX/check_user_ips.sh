@@ -324,7 +324,7 @@ done < "$events_file.sorted"
 echo
 echo -e "${YELLOW}📊 Detailed Overlap Sessions:${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-25s | %s\n" "#" "Start → End" "IP(s)"
+printf "%-3s %-35s | %s\n" "#" "Start → End" "IP(s)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 overlap_count=0
