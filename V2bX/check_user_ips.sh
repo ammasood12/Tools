@@ -206,7 +206,9 @@ done < "$logfile"
 # Display Main IP Table (No Duration Column)
 # ---------------------------
 echo
+echo -e "${CYAN}=================================================================${NC}"
 echo -e "${CYAN}==================== User Connection Summary ====================${NC}"
+echo -e "${CYAN}=================================================================${NC}"
 echo
 echo -e "${GREEN}✅ Found $unique_ips unique IPs ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
@@ -252,7 +254,9 @@ echo -e "${BLUE}----------------------------------------------------------------
 # Enhanced Overlap Detection with Improved Algorithm
 # ---------------------------
 echo
+echo -e "${CYAN}===================================================================${NC}"
 echo -e "${CYAN}==================== Enhanced Overlap Analysis ====================${NC}"
+echo -e "${CYAN}===================================================================${NC}"
 echo
 
 # Convert sessions to events for timeline analysis
@@ -475,7 +479,9 @@ echo -e "${BLUE}----------------------------------------------------------------
 # Final Assessment with Improved Criteria
 # ---------------------------
 echo
-echo -e "${PURPLE}==================== FINAL ASSESSMENT =====================${NC}"
+echo -e "${CYAN}===========================================================${NC}"
+echo -e "${CYAN}==================== FINAL ASSESSMENT =====================${NC}"
+echo -e "${CYAN}===========================================================${NC}"
 echo
 
 if [ $violation_score -ge 75 ]; then
