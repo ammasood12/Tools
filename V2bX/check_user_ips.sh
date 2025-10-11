@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-# V2bX User Activity Checker (Violation Detection)
-# Enhanced with usage time calculation and violation analysis
+# V2bX User Activity Checker (Enhanced Violation Detection)
+# Removed misleading duration, added smart violation detection
 # ==========================================
 
 # ---------------------------
@@ -68,36 +68,15 @@ if [ "$total_connections" -eq 0 ]; then
 fi
 
 # ---------------------------
-# Unique IP counts + first/last timestamps + calculate duration
+# Unique IP counts + first/last timestamps (NO DURATION CALCULATION)
 # ---------------------------
 sort "$tmpfile" | awk -F'|' '{
   count[$2]++;
   if(!start[$2]) start[$2]=$1;
   end[$2]=$1;
-  # Store all timestamps for duration calculation
-  if(first_ts[$2]=="") first_ts[$2]=$1;
-  last_ts[$2]=$1;
 } END {
-  for(ip in count) {
-    # Calculate approximate duration (first to last connection)
-    cmd = "date -d \"" last_ts[ip] "\" +%s 2>/dev/null";
-    cmd | getline end_epoch;
-    close(cmd);
-    cmd = "date -d \"" first_ts[ip] "\" +%s 2>/dev/null";
-    cmd | getline start_epoch;
-    close(cmd);
-    
-    if(end_epoch > start_epoch) {
-      total_seconds = end_epoch - start_epoch;
-      hours = int(total_seconds / 3600);
-      minutes = int((total_seconds % 3600) / 60);
-      seconds = int(total_seconds % 60);
-      duration = sprintf("%02d:%02d:%02d", hours, minutes, seconds);
-    } else {
-      duration = "00:00:00";
-    }
-    printf "%d|%s|%s|%s|%s\n", count[ip], ip, start[ip], end[ip], duration;
-  }
+  for(ip in count)
+    printf "%d|%s|%s|%s\n", count[ip], ip, start[ip], end[ip]
 }' | sort -t'|' -k3,3 > "$logfile"  # Sort by start time
 
 unique_ips=$(wc -l < "$logfile")
@@ -121,13 +100,14 @@ check_and_install curl
 check_and_install jq
 
 # ---------------------------
-# IP Location Function
+# Enhanced IP Location Function with ISP Detection
 # ---------------------------
 get_ip_location() {
     local ip=$1
     local location=""
+    local isp=""
     
-    response=$(curl -s -m 2 "http://ip-api.com/json/$ip?fields=status,message,country,regionName,city,isp")
+    response=$(curl -s -m 2 "http://ip-api.com/json/$ip?fields=status,message,country,regionName,city,isp,org,as")
     status=$(echo "$response" | jq -r '.status' 2>/dev/null)
     
     if [ "$status" = "success" ]; then
@@ -135,25 +115,31 @@ get_ip_location() {
         region=$(echo "$response" | jq -r '.regionName // empty')
         country=$(echo "$response" | jq -r '.country // empty')
         isp=$(echo "$response" | jq -r '.isp // empty')
+        org=$(echo "$response" | jq -r '.org // empty')
         
+        # Build location string
         if [ -n "$city" ] && [ "$city" != "null" ]; then
             location="$city"
             [ -n "$region" ] && [ "$region" != "null" ] && [ "$region" != "$city" ] && location="$location, $region"
-            if [[ "$isp" == *"Mobile"* ]]; then
-                location="$location (Mobile)"
-            elif [[ "$isp" == *"Telecom"* ]]; then
-                location="$location (Telecom)"
-            elif [[ "$isp" == *"Unicom"* ]]; then
-                location="$location (Unicom)"
-            fi
         else
             location="$region, $country"
         fi
+        
+        # Detect ISP type
+        if [[ "$isp" == *"Mobile"* ]] || [[ "$org" == *"Mobile"* ]]; then
+            isp_type="Mobile"
+        elif [[ "$isp" == *"Telecom"* ]] || [[ "$org" == *"Telecom"* ]]; then
+            isp_type="Telecom"
+        elif [[ "$isp" == *"Unicom"* ]] || [[ "$org" == *"Unicom"* ]]; then
+            isp_type="Unicom"
+        else
+            isp_type="Other"
+        fi
+        
+        echo "$location|$isp_type|$city|$region"
     else
-        location="Unknown"
+        echo "Unknown|Unknown||"
     fi
-    
-    echo "$location"
 }
 
 # ---------------------------
@@ -165,7 +151,7 @@ get_ip_subnet() {
 }
 
 # ---------------------------
-# Calculate duration between two timestamps
+# Calculate duration between two timestamps for overlaps only
 # ---------------------------
 calculate_duration() {
     local start="$1"
@@ -186,29 +172,29 @@ calculate_duration() {
 }
 
 # ---------------------------
-# Pre-fetch all IP locations
+# Pre-fetch all IP locations with enhanced data
 # ---------------------------
-echo -e "${YELLOW}🌍 Fetching IP locations...${NC}"
+echo -e "${YELLOW}🌍 Fetching IP locations and network data...${NC}"
 > "$location_cache_file"
 
-while IFS='|' read -r count ip start_time end_time duration; do
+while IFS='|' read -r count ip start_time end_time; do
     if ! grep -q "^$ip|" "$location_cache_file" 2>/dev/null; then
-        location=$(get_ip_location "$ip")
+        location_data=$(get_ip_location "$ip")
         subnet=$(get_ip_subnet "$ip")
-        echo "$ip|$location|$subnet" >> "$location_cache_file"
+        echo "$ip|$location_data|$subnet" >> "$location_cache_file"
         sleep 0.2
     fi
 done < "$logfile"
 
 # ---------------------------
-# Display Main IP Table (Sorted by Start Time)
+# Display Main IP Table (No Duration Column)
 # ---------------------------
 echo
 echo -e "${CYAN}==================== User Connection Summary ====================${NC}"
 echo
 echo -e "${GREEN}✅ Found $unique_ips unique IPs ($total_connections total connections)${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-18s | %-25s | %s\n" "#" "IP (Connections)" "Location" "Time Range (Usage)"
+printf "%-3s %-18s | %-30s | %s\n" "#" "IP (Connections)" "Location (ISP)" "Time Range"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
@@ -216,203 +202,263 @@ sessions_file="/tmp/user_sessions_array.txt"
 > "$sessions_file"
 
 num=1
-while IFS='|' read -r count ip start_time end_time duration; do
-    # Get location and subnet from cache
+while IFS='|' read -r count ip start_time end_time; do
+    # Get enhanced location data from cache
     cache_entry=$(grep "^$ip|" "$location_cache_file")
     location=$(echo "$cache_entry" | cut -d'|' -f2)
+    isp=$(echo "$cache_entry" | cut -d'|' -f3)
+    city=$(echo "$cache_entry" | cut -d'|' -f4)
+    region=$(echo "$cache_entry" | cut -d'|' -f5)
+    subnet=$(echo "$cache_entry" | cut -d'|' -f6)
     
     # Format timestamps
     start_fmt=$(date -d "$start_time" +"%m/%d %H:%M" 2>/dev/null || echo "$start_time")
     end_fmt=$(date -d "$end_time" +"%m/%d %H:%M" 2>/dev/null || echo "$end_time")
     
-    # Truncate long location strings
-    if [ ${#location} -gt 22 ]; then
-        location="${location:0:19}..."
+    # Build location string with ISP
+    location_isp="$location ($isp)"
+    if [ ${#location_isp} -gt 28 ]; then
+        location_isp="${location_isp:0:25}..."
     fi
     
-    printf "%-3s %-18s | %-25s | %s → %s (%s)\n" \
-        "$num" "$ip ($count)" "$location" "$start_fmt" "$end_fmt" "$duration"
+    printf "%-3s %-18s | %-30s | %s → %s\n" \
+        "$num" "$ip ($count)" "$location_isp" "$start_fmt" "$end_fmt"
     
-    # Store session data with subnet
-    echo "$ip|$start_time|$end_time|$duration" >> "$sessions_file"
+    # Store enhanced session data
+    echo "$ip|$subnet|$city|$region|$isp|$start_time|$end_time" >> "$sessions_file"
     ((num++))
 done < "$logfile"
 
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # ---------------------------
-# Overlapping Sessions Analysis
+# Enhanced Overlap Detection with Violation Scoring
 # ---------------------------
 echo
-echo -e "${CYAN}==================== Overlapping Sessions ======================${NC}"
+echo -e "${CYAN}==================== Enhanced Overlap Analysis ====================${NC}"
 echo
-echo -e "${YELLOW}📅 Sessions with overlapping time periods:${NC}"
-echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-35s | %s\n" "#" "Time Range (Usage)" "IPs"
-echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+
+# Initialize violation scoring
+violation_score=0
+max_simultaneous_ips=0
+different_cities=0
+different_regions=0
+different_isps=0
+long_overlaps=0
+overlap_details=()
 
 # Convert sessions to events
 events_file="/tmp/events.txt"
 > "$events_file"
 
-while IFS='|' read -r ip start end duration; do
-    echo "$start|start|$ip" >> "$events_file"
-    echo "$end|end|$ip" >> "$events_file"
+while IFS='|' read -r ip subnet city region isp start end; do
+    echo "$start|start|$ip|$subnet|$city|$region|$isp" >> "$events_file"
+    echo "$end|end|$ip|$subnet|$city|$region|$isp" >> "$events_file"
 done < "$sessions_file"
 
 # Sort events by timestamp
 sort "$events_file" > "$events_file.sorted" 2>/dev/null
 
+# Process events for enhanced analysis
 active_ips_file="/tmp/active_ips.txt"
+active_subnets_file="/tmp/active_subnets.txt"
+active_cities_file="/tmp/active_cities.txt"
+active_regions_file="/tmp/active_regions.txt"
+active_isps_file="/tmp/active_isps.txt"
 > "$active_ips_file"
+> "$active_subnets_file"
+> "$active_cities_file"
+> "$active_regions_file"
+> "$active_isps_file"
 
 overlap_start=""
-overlap_ips=()
 overlap_num=1
-overlap_found=0
 
 if [ -s "$events_file.sorted" ]; then
-    while IFS='|' read -r timestamp type ip; do
+    while IFS='|' read -r timestamp type ip subnet city region isp; do
         if [ "$type" == "start" ]; then
-            # Add IP to active list
+            # Add to all active lists
             echo "$ip" >> "$active_ips_file"
-            active_ips=($(sort -u "$active_ips_file"))
+            echo "$subnet" >> "$active_subnets_file"
+            [ -n "$city" ] && echo "$city" >> "$active_cities_file"
+            [ -n "$region" ] && echo "$region" >> "$active_regions_file"
+            [ -n "$isp" ] && echo "$isp" >> "$active_isps_file"
             
-            # Start overlap if 2+ IPs active
-            if [ ${#active_ips[@]} -ge 2 ] && [ -z "$overlap_start" ]; then
+            # Calculate current diversity
+            current_ips=$(sort -u "$active_ips_file" | wc -l | tr -d ' ')
+            current_subnets=$(sort -u "$active_subnets_file" | wc -l | tr -d ' ')
+            current_cities=$(sort -u "$active_cities_file" | wc -l | tr -d ' ')
+            current_regions=$(sort -u "$active_regions_file" | wc -l | tr -d ' ')
+            current_isps=$(sort -u "$active_isps_file" | wc -l | tr -d ' ')
+            
+            # Track maximum simultaneous IPs
+            [ $current_ips -gt $max_simultaneous_ips ] && max_simultaneous_ips=$current_ips
+            
+            # Start overlap tracking when we have multiple IPs
+            if [ $current_ips -ge 2 ] && [ -z "$overlap_start" ]; then
                 overlap_start="$timestamp"
-                overlap_ips=("${active_ips[@]}")
+                overlap_data="$current_ips|$current_subnets|$current_cities|$current_regions|$current_isps"
             fi
-        else
-            # Get active IPs before removal
-            active_ips=($(sort -u "$active_ips_file"))
             
-            # End overlap if currently 2+ IPs active
-            if [ ${#active_ips[@]} -ge 2 ] && [ -n "$overlap_start" ]; then
+        else
+            # End overlap if we were tracking one
+            if [ -n "$overlap_start" ]; then
                 overlap_end="$timestamp"
-                
-                # Calculate overlap duration
                 overlap_duration=$(calculate_duration "$overlap_start" "$overlap_end")
                 
-                # Format timestamps
-                start_fmt=$(date -d "$overlap_start" +"%m/%d %H:%M" 2>/dev/null)
-                end_fmt=$(date -d "$overlap_end" +"%m/%d %H:%M" 2>/dev/null)
+                # Parse overlap data
+                current_ips=$(echo "$overlap_data" | cut -d'|' -f1)
+                current_subnets=$(echo "$overlap_data" | cut -d'|' -f2)
+                current_cities=$(echo "$overlap_data" | cut -d'|' -f3)
+                current_regions=$(echo "$overlap_data" | cut -d'|' -f4)
+                current_isps=$(echo "$overlap_data" | cut -d'|' -f5)
                 
-                # Get IP list
-                ips_list=$(printf "%s," "${active_ips[@]}" | sed 's/,$//')
+                # Store overlap details for scoring
+                overlap_details+=("$current_ips|$current_subnets|$current_cities|$current_regions|$current_isps|$overlap_duration")
                 
-                printf "%-3s %-35s | %s\n" "$overlap_num" "$start_fmt → $end_fmt ($overlap_duration)" "$ips_list"
-                ((overlap_num++))
-                overlap_found=1
-            fi
-            
-            # Remove IP from active list
-            grep -v "^$ip$" "$active_ips_file" > "$active_ips_file.tmp" && mv "$active_ips_file.tmp" "$active_ips_file"
-            
-            # Reset overlap if less than 2 IPs
-            active_ips=($(sort -u "$active_ips_file"))
-            if [ ${#active_ips[@]} -lt 2 ]; then
+                # Update maximum diversity counts
+                [ $current_cities -gt $different_cities ] && different_cities=$current_cities
+                [ $current_regions -gt $different_regions ] && different_regions=$current_regions
+                [ $current_isps -gt $different_isps ] && different_isps=$current_isps
+                
+                # Check for long overlaps (>30 minutes)
+                overlap_seconds=$(echo "$overlap_duration" | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
+                [ $overlap_seconds -gt 1800 ] && long_overlaps=$((long_overlaps + 1))
+                
                 overlap_start=""
-                overlap_ips=()
             fi
+            
+            # Remove from active lists
+            grep -v "^$ip$" "$active_ips_file" > "$active_ips_file.tmp" && mv "$active_ips_file.tmp" "$active_ips_file"
+            grep -v "^$subnet$" "$active_subnets_file" > "$active_subnets_file.tmp" && mv "$active_subnets_file.tmp" "$active_subnets_file"
+            [ -n "$city" ] && grep -v "^$city$" "$active_cities_file" > "$active_cities_file.tmp" && mv "$active_cities_file.tmp" "$active_cities_file"
+            [ -n "$region" ] && grep -v "^$region$" "$active_regions_file" > "$active_regions_file.tmp" && mv "$active_regions_file.tmp" "$active_regions_file"
+            [ -n "$isp" ] && grep -v "^$isp$" "$active_isps_file" > "$active_isps_file.tmp" && mv "$active_isps_file.tmp" "$active_isps_file"
         fi
     done < "$events_file.sorted"
 fi
 
-if [ $overlap_found -eq 0 ]; then
-    echo -e "${YELLOW}No overlapping sessions found.${NC}"
-    echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-fi
-
 # ---------------------------
-# Violation Analysis Conclusion
+# Calculate Violation Score
 # ---------------------------
-echo
-echo -e "${CYAN}==================== Violation Analysis ======================${NC}"
-echo
-
-# Analyze based on selected period
-echo -e "${YELLOW}📊 Analysis for selected period: ${NC}$([ -n "$period" ] && echo "$period" || echo "All logs")"
-
-# Count unique subnets for context
-unique_subnets=$(cut -d'|' -f3 "$location_cache_file" | sort -u | wc -l | tr -d ' ')
-total_overlaps=$((overlap_num - 1))
-
-echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-echo -e "Unique IPs: $unique_ips"
-echo -e "Unique IP Subnets: $unique_subnets"
-echo -e "Overlapping Sessions: $total_overlaps"
+echo -e "${YELLOW}📊 Violation Scoring Analysis:${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
-# Violation assessment based on period
-echo
-echo -e "${YELLOW}🔍 Violation Assessment:${NC}"
-
-if [ $overlap_found -eq 0 ]; then
-    echo -e "  ${GREEN}✅ NO EVIDENCE of multi-device usage${NC}"
-    echo -e "  - No overlapping sessions detected in selected period"
+# 1. Concurrent IP Count (40 points max)
+if [ $max_simultaneous_ips -ge 4 ]; then
+    ip_score=40
+    echo -e "🔴 Max Simultaneous IPs: $max_simultaneous_ips (+40 points)"
+elif [ $max_simultaneous_ips -eq 3 ]; then
+    ip_score=20
+    echo -e "🟡 Max Simultaneous IPs: $max_simultaneous_ips (+20 points)"
 else
-    # Different assessment based on period
-    case "$option" in
-        1) # Last 1 hour
-            if [ $total_overlaps -ge 2 ]; then
-                echo -e "  ${RED}🚨 HIGH PROBABILITY OF VIOLATION${NC}"
-                echo -e "  - Multiple overlaps in 1 hour suggests active multi-device usage"
-            else
-                echo -e "  ${YELLOW}⚠️  SUSPICIOUS ACTIVITY DETECTED${NC}"
-                echo -e "  - Overlapping sessions found in 1 hour period"
-            fi
-            ;;
-        2) # Last 1 day
-            if [ $total_overlaps -ge 3 ]; then
-                echo -e "  ${RED}🚨 HIGH PROBABILITY OF VIOLATION${NC}"
-                echo -e "  - Multiple overlaps throughout the day"
-            elif [ $total_overlaps -ge 1 ]; then
-                echo -e "  ${YELLOW}⚠️  POTENTIAL VIOLATION${NC}"
-                echo -e "  - Some overlapping sessions detected"
-            else
-                echo -e "  ${GREEN}✅ NO EVIDENCE of multi-device usage${NC}"
-            fi
-            ;;
-        3) # Last 1 week
-            if [ $total_overlaps -ge 5 ]; then
-                echo -e "  ${RED}🚨 CLEAR VIOLATION PATTERN${NC}"
-                echo -e "  - Consistent overlapping sessions throughout week"
-            elif [ $total_overlaps -ge 2 ]; then
-                echo -e "  ${YELLOW}⚠️  SUSPICIOUS PATTERN${NC}"
-                echo -e "  - Multiple overlapping sessions detected"
-            else
-                echo -e "  ${GREEN}✅ MINOR OVERLAPS - likely normal usage${NC}"
-            fi
-            ;;
-        4) # All logs
-            if [ $total_overlaps -ge 10 ]; then
-                echo -e "  ${RED}🚨 CLEAR AND REPEATED VIOLATIONS${NC}"
-                echo -e "  - Extensive overlapping session history"
-            elif [ $total_overlaps -ge 5 ]; then
-                echo -e "  ${YELLOW}⚠️  FREQUENT VIOLATIONS DETECTED${NC}"
-                echo -e "  - Regular pattern of overlapping sessions"
-            elif [ $total_overlaps -ge 1 ]; then
-                echo -e "  ${YELLOW}⚠️  OCCASIONAL OVERLAPS DETECTED${NC}"
-                echo -e "  - Some overlapping sessions in history"
-            else
-                echo -e "  ${GREEN}✅ CLEAN USAGE HISTORY${NC}"
-            fi
-            ;;
-    esac
+    ip_score=0
+    echo -e "🟢 Max Simultaneous IPs: $max_simultaneous_ips (+0 points)"
+fi
+violation_score=$((violation_score + ip_score))
+
+# 2. Geographic Diversity (30 points max)
+if [ $different_cities -ge 3 ]; then
+    geo_score=30
+    echo -e "🔴 Different Cities: $different_cities (+30 points)"
+elif [ $different_cities -eq 2 ]; then
+    geo_score=15
+    echo -e "🟡 Different Cities: $different_cities (+15 points)"
+else
+    geo_score=0
+    echo -e "🟢 Different Cities: $different_cities (+0 points)"
+fi
+violation_score=$((violation_score + geo_score))
+
+# 3. Network Diversity (20 points max)
+if [ $different_isps -ge 2 ]; then
+    net_score=20
+    echo -e "🔴 Different ISPs: $different_isps (+20 points)"
+else
+    net_score=0
+    echo -e "🟢 Different ISPs: $different_isps (+0 points)"
+fi
+violation_score=$((violation_score + net_score))
+
+# 4. Overlap Duration (10 points max)
+if [ $long_overlaps -ge 2 ]; then
+    time_score=10
+    echo -e "🔴 Long Overlaps (>30min): $long_overlaps (+10 points)"
+elif [ $long_overlaps -eq 1 ]; then
+    time_score=5
+    echo -e "🟡 Long Overlaps (>30min): $long_overlaps (+5 points)"
+else
+    time_score=0
+    echo -e "🟢 Long Overlaps (>30min): $long_overlaps (+0 points)"
+fi
+violation_score=$((violation_score + time_score))
+
+echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+echo -e "${PURPLE}Total Violation Score: $violation_score/100${NC}"
+echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+
+# ---------------------------
+# Display Critical Overlaps
+# ---------------------------
+echo
+echo -e "${YELLOW}🚨 Critical Overlap Sessions:${NC}"
+echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+printf "%-3s %-20s | %-10s | %s\n" "#" "Time Range" "Duration" "IPs & Networks"
+echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+
+critical_count=0
+for overlap in "${overlap_details[@]}"; do
+    ips=$(echo "$overlap" | cut -d'|' -f1)
+    subnets=$(echo "$overlap" | cut -d'|' -f2)
+    cities=$(echo "$overlap" | cut -d'|' -f3)
+    isps=$(echo "$overlap" | cut -d'|' -f5)
+    duration=$(echo "$overlap" | cut -d'|' -f6)
     
-    echo
-    echo -e "${YELLOW}📋 Evidence Summary:${NC}"
-    echo -e "  - Found $total_overlaps overlapping session(s)"
-    echo -e "  - Check 'Overlapping Sessions' section above for details"
-    echo -e "  - Each overlap shows simultaneous connections from different IPs"
+    # Only show overlaps with high violation potential
+    if [ $ips -ge 3 ] || [ $cities -ge 2 ] || [ $isps -ge 2 ]; then
+        ((critical_count++))
+        printf "%-3s %-20s | %-10s | %d IPs, %d cities, %d ISPs\n" \
+            "$critical_count" "Overlap" "$duration" "$ips" "$cities" "$isps"
+    fi
+done
+
+if [ $critical_count -eq 0 ]; then
+    echo -e "${YELLOW}No critical overlaps detected${NC}"
+fi
+
+echo -e "${BLUE}-----------------------------------------------------------------${NC}"
+
+# ---------------------------
+# Final Violation Assessment
+# ---------------------------
+echo
+echo -e "${PURPLE}==================== FINAL ASSESSMENT =====================${NC}"
+echo
+
+if [ $violation_score -ge 70 ]; then
+    echo -e "🔴 ${RED}🚨 HIGH CONFIDENCE VIOLATION DETECTED${NC}"
+    echo -e "   - Multiple strong indicators of multi-device usage"
+    echo -e "   - Very likely exceeding 3-device limit"
+elif [ $violation_score -ge 40 ]; then
+    echo -e "🟡 ${YELLOW}⚠️  SUSPICIOUS ACTIVITY DETECTED${NC}"
+    echo -e "   - Several indicators suggest potential violation"
+    echo -e "   - Monitor user for further evidence"
+elif [ $violation_score -ge 20 ]; then
+    echo -e "🟡 ${YELLOW}📋 INCONCLUSIVE - NEEDS MONITORING${NC}"
+    echo -e "   - Some minor indicators detected"
+    echo -e "   - Could be normal carrier IP rotation"
+else
+    echo -e "🟢 ${GREEN}✅ LIKELY NORMAL USAGE${NC}"
+    echo -e "   - No strong evidence of multi-device usage"
+    echo -e "   - Patterns consistent with single device + carrier rotation"
 fi
 
 echo
-echo -e "${YELLOW}💡 Interpretation Guide:${NC}"
-echo -e "  - Overlapping sessions = Multiple IPs active at same time"
-echo -e "  - Different IPs active simultaneously = Likely different devices"
-echo -e "  - 3+ different IPs overlapping = Clear violation of 3-device limit"
+echo -e "${YELLOW}📋 Key Evidence:${NC}"
+echo -e "   • Max simultaneous IPs: $max_simultaneous_ips"
+echo -e "   • Different cities active: $different_cities"
+echo -e "   • Different ISPs used: $different_isps"
+echo -e "   • Long overlaps: $long_overlaps"
 
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
@@ -424,4 +470,6 @@ echo -e "${GREEN}📄 Session summary saved to: $logfile${NC}"
 echo -e "${GREEN}📄 Raw timestamp+IP data saved to: $tmpfile${NC}"
 
 # Cleanup temporary files
-rm -f "$location_cache_file" "$sessions_file" "$events_file" "$events_file.sorted" "$active_ips_file" 2>/dev/null
+rm -f "$location_cache_file" "$sessions_file" "$events_file" "$events_file.sorted" \
+      "$active_ips_file" "$active_subnets_file" "$active_cities_file" \
+      "$active_regions_file" "$active_isps_file" 2>/dev/null
