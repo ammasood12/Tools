@@ -213,7 +213,7 @@ echo
 echo -e "${GREEN}✅ Found $unique_ips unique IPs ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-25s | %-30s | %s\n" "#" "IP (Connections)" "Location (ISP)" "Time Range"
+printf "%-3s %-25s | %-30s | %s\n" "#" "Time Range" "IP (Connections)" "Location (ISP)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
@@ -241,7 +241,7 @@ while IFS='|' read -r count ip start_time end_time; do
     fi
     
     printf "%-3s %-25s | %-30s | %s → %s\n" \
-        "$num" "$ip ($count)" "$location_isp" "$start_fmt" "$end_fmt"
+        "$num" "$start_fmt" "$end_fmt" "$ip ($count)" "$location_isp"
     
     # Store enhanced session data
     echo "$ip|$subnet|$city|$region|$isp|$start_time|$end_time" >> "$sessions_file"
@@ -324,7 +324,7 @@ done < "$events_file.sorted"
 echo
 echo -e "${YELLOW}📊 Detailed Overlap Sessions:${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-35s | %s\n" "#" "Start → End" "IP(s)"
+printf "%-3s %-35s | %s\n" "#" "Time Range" "IP(s)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 overlap_count=0
