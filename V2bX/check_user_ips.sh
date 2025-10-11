@@ -405,48 +405,48 @@ done
 # 1. Concurrent IP Count Score (35 points max)
 if [ $max_concurrent_ips -ge 4 ]; then
     ip_score=35
-    echo -e "🔴 Max Concurrent IPs: $max_concurrent_ips (+35 points)"
+    echo -e "${RED}🔴 Max Concurrent IPs: $max_concurrent_ips (+35 points)"
 elif [ $max_concurrent_ips -eq 3 ]; then
     ip_score=20
-    echo -e "🟡 Max Concurrent IPs: $max_concurrent_ips (+20 points)"
+    echo -e "${YELLOW}🟡 Max Concurrent IPs: $max_concurrent_ips (+20 points)"
 elif [ $max_concurrent_ips -eq 2 ]; then
     ip_score=10
-    echo -e "🟢 Max Concurrent IPs: $max_concurrent_ips (+10 points)"
+    echo -e "${GREEN}🟢 Max Concurrent IPs: $max_concurrent_ips (+10 points)"
 else
     ip_score=0
-    echo -e "🟢 Max Concurrent IPs: $max_concurrent_ips (+0 points)"
+    echo -e "${GREEN}🟢 Max Concurrent IPs: $max_concurrent_ips (+0 points)"
 fi
 violation_score=$((violation_score + ip_score))
 
 # 2. High Risk Overlap Score (30 points max)
 if [ $high_risk_overlaps -ge 3 ]; then
     high_risk_score=30
-    echo -e "🔴 High Risk Overlaps: $high_risk_overlaps (+30 points)"
+    echo -e "${RED}🔴 High Risk Overlaps: $high_risk_overlaps (+30 points)"
 elif [ $high_risk_overlaps -eq 2 ]; then
     high_risk_score=20
-    echo -e "🟡 High Risk Overlaps: $high_risk_overlaps (+20 points)"
+    echo -e "${YELLOW}🟡 High Risk Overlaps: $high_risk_overlaps (+20 points)"
 elif [ $high_risk_overlaps -eq 1 ]; then
     high_risk_score=10
-    echo -e "🟡 High Risk Overlaps: $high_risk_overlaps (+10 points)"
+    echo -e "${YELLOW}🟡 High Risk Overlaps: $high_risk_overlaps (+10 points)"
 else
     high_risk_score=0
-    echo -e "🟢 High Risk Overlaps: $high_risk_overlaps (+0 points)"
+    echo -e "${GREEN}🟢 High Risk Overlaps: $high_risk_overlaps (+0 points)"
 fi
 violation_score=$((violation_score + high_risk_score))
 
 # 3. Moderate Risk Overlap Score (20 points max)
 if [ $moderate_risk_overlaps -ge 3 ]; then
     moderate_risk_score=20
-    echo -e "🔴 Moderate Risk Overlaps: $moderate_risk_overlaps (+20 points)"
+    echo -e "${RED}🔴 Moderate Risk Overlaps: $moderate_risk_overlaps (+20 points)"
 elif [ $moderate_risk_overlaps -ge 2 ]; then
     moderate_risk_score=15
-    echo -e "🟡 Moderate Risk Overlaps: $moderate_risk_overlaps (+15 points)"
+    echo -e "${YELLOW}🟡 Moderate Risk Overlaps: $moderate_risk_overlaps (+15 points)"
 elif [ $moderate_risk_overlaps -eq 1 ]; then
     moderate_risk_score=5
-    echo -e "🟢 Moderate Risk Overlaps: $moderate_risk_overlaps (+5 points)"
+    echo -e "${GREEN}🟢 Moderate Risk Overlaps: $moderate_risk_overlaps (+5 points)"
 else
     moderate_risk_score=0
-    echo -e "🟢 Moderate Risk Overlaps: $moderate_risk_overlaps (+0 points)"
+    echo -e "${GREEN}🟢 Moderate Risk Overlaps: $moderate_risk_overlaps (+0 points)"
 fi
 violation_score=$((violation_score + moderate_risk_score))
 
@@ -454,16 +454,16 @@ violation_score=$((violation_score + moderate_risk_score))
 overlap_hours=$(echo "scale=2; $total_overlap_time / 3600" | bc)
 if (( $(echo "$overlap_hours > 2.0" | bc -l) )); then
     time_score=15
-    echo -e "🔴 Total Overlap Time: ${overlap_hours}h (+15 points)"
+    echo -e "${RED}🔴 Total Overlap Time: ${overlap_hours}h (+15 points)"
 elif (( $(echo "$overlap_hours > 1.0" | bc -l) )); then
     time_score=10
-    echo -e "🟡 Total Overlap Time: ${overlap_hours}h (+10 points)"
+    echo -e "${YELLOW}🟡 Total Overlap Time: ${overlap_hours}h (+10 points)"
 elif (( $(echo "$overlap_hours > 0.5" | bc -l) )); then
     time_score=5
-    echo -e "🟢 Total Overlap Time: ${overlap_hours}h (+5 points)"
+    echo -e "${GREEN}🟢 Total Overlap Time: ${overlap_hours}h (+5 points)"
 else
     time_score=0
-    echo -e "🟢 Total Overlap Time: ${overlap_hours}h (+0 points)"
+    echo -e "${GREEN}🟢 Total Overlap Time: ${overlap_hours}h (+0 points)"
 fi
 violation_score=$((violation_score + time_score))
 
@@ -479,22 +479,22 @@ echo -e "${PURPLE}==================== FINAL ASSESSMENT =====================${N
 echo
 
 if [ $violation_score -ge 75 ]; then
-    echo -e "🔴 ${RED}🚨 HIGH CONFIDENCE VIOLATION DETECTED${NC}"
+    echo -e "${RED}🔴 🚨 HIGH CONFIDENCE VIOLATION DETECTED${NC}"
     echo -e "   - Strong evidence of multi-device usage exceeding limits"
     echo -e "   - Multiple high-risk overlap patterns detected"
     echo -e "   - Immediate investigation recommended"
 elif [ $violation_score -ge 50 ]; then
-    echo -e "🟡 ${YELLOW}⚠️  SUSPICIOUS ACTIVITY DETECTED${NC}"
+    echo -e "${YELLOW}🟡 ⚠️  SUSPICIOUS ACTIVITY DETECTED${NC}"
     echo -e "   - Moderate evidence of potential policy violation"
     echo -e "   - Several concerning overlap patterns observed"
     echo -e "   - Close monitoring advised"
 elif [ $violation_score -ge 25 ]; then
-    echo -e "🟡 ${YELLOW}📋 INCONCLUSIVE - NEEDS MONITORING${NC}"
+    echo -e "${YELLOW}🟡 📋 INCONCLUSIVE - NEEDS MONITORING${NC}"
     echo -e "   - Some minor overlap patterns detected"
     echo -e "   - Could be normal network behavior"
     echo -e "   - Continue monitoring for patterns"
 else
-    echo -e "🟢 ${GREEN}✅ LIKELY NORMAL USAGE${NC}"
+    echo -e "${GREEN}🟢 ✅ LIKELY NORMAL USAGE${NC}"
     echo -e "   - No significant evidence of policy violation"
     echo -e "   - Patterns consistent with single device usage"
     echo -e "   - Normal carrier IP rotation detected"
