@@ -74,8 +74,13 @@ calculate_duration() {
     local start="$1"
     local end="$2"
     
-    start_epoch=$(date -d "$start" +%s 2>/dev/null)
-    end_epoch=$(date -d "$end" +%s 2>/dev/null)
+    # Remove microseconds from timestamp (everything after the last dot)
+    start_clean=$(echo "$start" | sed 's/\.[0-9]*$//')
+    end_clean=$(echo "$end" | sed 's/\.[0-9]*$//')
+    
+    # Convert to epoch seconds
+    start_epoch=$(date -d "$start_clean" +%s 2>/dev/null)
+    end_epoch=$(date -d "$end_clean" +%s 2>/dev/null)
     
     if [ -n "$start_epoch" ] && [ -n "$end_epoch" ] && [ "$end_epoch" -gt "$start_epoch" ]; then
         total_seconds=$((end_epoch - start_epoch))
@@ -105,12 +110,12 @@ sort "$tmpfile" | awk -F'|' '{
     duration_seconds=$(echo "$duration" | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
     # Only include sessions with duration >= 5 minutes (300 seconds)
     if [ "$duration_seconds" -ge 300 ]; then
-        echo "$count|$ip|$start_time|$end_time" >> "$filtered_logfile"
+        echo "$count|$ip|$start_time|$end_time|$duration" >> "$filtered_logfile"
     fi
 done
 
-# Use filtered data for display
-cp "$filtered_logfile" "$logfile"
+# Sort by start time and use filtered data for display
+sort -t'|' -k3,3 "$filtered_logfile" > "$logfile"
 unique_ips=$(wc -l < "$logfile")
 
 if [ "$unique_ips" -eq 0 ]; then
@@ -193,7 +198,7 @@ get_ip_subnet() {
 echo -e "${YELLOW}🌍 Fetching IP locations and network data...${NC}"
 > "$location_cache_file"
 
-while IFS='|' read -r count ip start_time end_time; do
+while IFS='|' read -r count ip start_time end_time duration; do
     if ! grep -q "^$ip|" "$location_cache_file" 2>/dev/null; then
         location_data=$(get_ip_location "$ip")
         subnet=$(get_ip_subnet "$ip")
@@ -210,10 +215,10 @@ echo -e "${CYAN}================================================================
 echo -e "${CYAN}==================== User Connection Summary ====================${NC}"
 echo -e "${CYAN}=================================================================${NC}"
 echo
-echo -e "${GREEN}✅ Found $unique_ips unique IPs ($total_connections total connections)${NC}"
+echo -e "${GREEN}✅ Found $unique_sessions sessions ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-25s | %-30s | %s\n" "#" "Time Range" "IP (Connections)" "Location (ISP)"
+printf "%-3s %-35s | %-20s | %s\n" "#" "Time Range (Duration)" "IP (Connections)" "Location (ISP)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
@@ -221,7 +226,7 @@ sessions_file="/tmp/user_sessions_array.txt"
 > "$sessions_file"
 
 num=1
-while IFS='|' read -r count ip start_time end_time; do
+while IFS='|' read -r count ip start_time end_time duration; do
     # Get enhanced location data from cache
     cache_entry=$(grep "^$ip|" "$location_cache_file")
     location=$(echo "$cache_entry" | cut -d'|' -f2)
@@ -240,8 +245,9 @@ while IFS='|' read -r count ip start_time end_time; do
         location_isp="${location_isp:0:25}..."
     fi
     
-    printf "%-3s %-25s | %-30s | %s → %s\n" \
-        "$num" "$start_fmt" "$end_fmt" "$ip ($count)" "$location_isp"
+    # Remove the debug line and use the pre-calculated duration
+    printf "%-3s %-35s | %-20s | %s\n" \
+        "$num" "$start_fmt → $end_fmt ($duration)" "$ip ($count)" "$location_isp"
     
     # Store enhanced session data
     echo "$ip|$subnet|$city|$region|$isp|$start_time|$end_time" >> "$sessions_file"
@@ -324,7 +330,7 @@ done < "$events_file.sorted"
 echo
 echo -e "${YELLOW}📊 Detailed Overlap Sessions:${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-35s | %s\n" "#" "Time Range" "IP(s)"
+printf "%-3s %-35s | %s\n" "#" "Time Range (Duration)" "IP(s)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 overlap_count=0
@@ -336,8 +342,8 @@ for segment in "${overlap_segments[@]}"; do
     ips_string=$(echo "$segment" | cut -d'|' -f3)
     
     # Convert timestamps back to readable format
-    start_readable=$(date -d "@$start_epoch" +"%Y/%m/%d %H:%M" 2>/dev/null)
-    end_readable=$(date -d "@$end_epoch" +"%Y/%m/%d %H:%M" 2>/dev/null)
+	start_readable=$(date -d "@$start_epoch" +"%m/%d %H:%M" 2>/dev/null)
+	end_readable=$(date -d "@$end_epoch" +"%m/%d %H:%M" 2>/dev/null)
     
     # Calculate duration
     duration_seconds=$((end_epoch - start_epoch))
@@ -354,8 +360,8 @@ for segment in "${overlap_segments[@]}"; do
         # Format IPs for display (comma separated)
         ips_display=$(echo "$ips_string" | tr ' ' ',')
         
-        printf "%-3s %-25s | %s\n" \
-            "$overlap_count" "$start_readable → $end_readable" "$ips_display"
+        printf "%-3s %-35s | %s\n" \
+			"$overlap_count" "$start_readable → $end_readable ($duration)" "$ips_display"
         
         # Store for violation scoring
         overlap_details_array+=("$unique_ips_count|$duration_seconds|$ips_string")
