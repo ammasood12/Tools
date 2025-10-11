@@ -213,7 +213,7 @@ echo
 echo -e "${GREEN}✅ Found $unique_ips unique IPs ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-18s | %-30s | %s\n" "#" "IP (Connections)" "Location (ISP)" "Time Range"
+printf "%-3s %-25s | %-30s | %s\n" "#" "IP (Connections)" "Location (ISP)" "Time Range"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
@@ -240,7 +240,7 @@ while IFS='|' read -r count ip start_time end_time; do
         location_isp="${location_isp:0:25}..."
     fi
     
-    printf "%-3s %-18s | %-30s | %s → %s\n" \
+    printf "%-3s %-25s | %-30s | %s → %s\n" \
         "$num" "$ip ($count)" "$location_isp" "$start_fmt" "$end_fmt"
     
     # Store enhanced session data
@@ -324,7 +324,7 @@ done < "$events_file.sorted"
 echo
 echo -e "${YELLOW}📊 Detailed Overlap Sessions:${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-20s | %s\n" "#" "Start → End" "IP(s)"
+printf "%-3s %-25s | %s\n" "#" "Start → End" "IP(s)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 overlap_count=0
@@ -354,7 +354,7 @@ for segment in "${overlap_segments[@]}"; do
         # Format IPs for display (comma separated)
         ips_display=$(echo "$ips_string" | tr ' ' ',')
         
-        printf "%-3s %-20s | %s\n" \
+        printf "%-3s %-25s | %s\n" \
             "$overlap_count" "$start_readable → $end_readable" "$ips_display"
         
         # Store for violation scoring
