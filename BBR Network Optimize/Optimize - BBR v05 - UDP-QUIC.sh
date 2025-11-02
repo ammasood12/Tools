@@ -18,7 +18,8 @@ echo -e "============================================================${RESET}"
 sleep 1
 
 # --- Backup existing sysctl.conf ---
-BACKUP_FILE="/etc/sysctl.conf.bak-$(date +%F)"
+# BACKUP_FILE="/etc/sysctl.conf.bak-$(date +%F)"
+BACKUP_FILE="/etc/sysctl.conf.bak-$(date +%Y%m%d-%H%M%S)"
 echo -e "${YELLOW}>>> Creating backup: $BACKUP_FILE${RESET}"
 cp /etc/sysctl.conf "$BACKUP_FILE" && echo -e "${GREEN}✓ Backup created successfully.${RESET}" || echo -e "${YELLOW}! Backup failed (check permissions).${RESET}"
 
@@ -30,7 +31,7 @@ cat <<'EOF' > /etc/sysctl.conf
 # ============================================================
 # V2bX / Sing-box / Xray Network Optimization
 # Optimized for China routes | BBR + fq_codel | UDP/QUIC Enhanced
-# Updated: $(date)
+# Updated: $(date +%Y%m%d-%H%M%S)
 # ============================================================
 
 # --- Core network optimization ---
