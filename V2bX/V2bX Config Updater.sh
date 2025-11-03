@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.6"
+version="7.07.7"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -255,7 +255,9 @@ echo -e "      ▷ ${CYAN}ShadowSocks → xRay:${NC}     $USE_SHADOWSOCKS"
 echo -e "      ▷ ${CYAN}TROJAN      → xRay:${NC}     $USE_TROJAN"
 echo -e "  • Automatically restart V2bX\n"
 
-# --- Display nodes ---
+# ========================================
+# Show Node ID & Domain Data
+# ========================================
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo -e "${BOLD}${BLUE}        🛫  Select Node ID & Domain"
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
@@ -265,21 +267,54 @@ for i in $(seq 1 15); do
   printf "${CYAN} %2s ${NC}│ %s\n" "$i" "${nodes[$i]}"
 done
 echo ""
-echo -e "Original nodeID will be appended (e.g. for node 10, nodeTypeID=102)"
+echo -e "Original nodeID will be appended"
+echo -e "(e.g. for node 10, nodeTypeID=102)"
 echo -e "${BLUE}──────────────────────────────────────────────${NC}\n"
 
-# --- Select node ---
-# read -rp "$(echo -e ${YELLOW}"Enter Node number (1–15): "${NC})" nodeNum
-nodeNum=$(ask_input "Enter Node number (1–15 or 0 to exit): ") || exit 0
+# ========================================
+# Node Selector/input
+# ========================================
+nodeNum=$(ask_input "Enter Node number (1–15), 'auto' to use current, or 0 to exit: ") || exit 0
 echo ""
-if [[ -z "${nodes[$nodeNum]}" ]]; then
-  echo -e "${RED}❌ Invalid node number.${NC}"
-  echo -e "${YELLOW}Please try again.${NC}"
-  exec "$0"  # restart the script instead of exiting shell
+
+# --- Handle 'auto' option ---
+if [[ "$nodeNum" == "auto" ]]; then
+  echo -e "${CYAN}🔍 Auto-detecting current NodeID and domain...${NC}"
+
+  # Parse the first NodeID and CertDomain from existing config
+  # → script reads the first NodeID and CertDomain from the existing /etc/V2bX/config.json.
+  # → extracts base node number (e.g. NodeID 152 → base node = 15).
+  if [[ -f "$config_file" ]]; then
+    currentNodeID=$(grep -m1 '"NodeID"' "$config_file" | grep -oE '[0-9]+')
+    currentDomain=$(grep -m1 '"CertDomain"' "$config_file" | cut -d '"' -f4)
+  fi
+
+  if [[ -n "$currentNodeID" && -n "$currentDomain" ]]; then
+    echo -e "${GREEN}✅ Using existing Node:${NC}"
+    echo -e "   NodeID:   ${CYAN}$currentNodeID${NC}"
+    echo -e "   Domain:   ${CYAN}$currentDomain${NC}\n"
+
+    # extract numeric nodeNum from NodeID
+    nodeNum=$((currentNodeID / 10))
+    domain="$currentDomain"
+  else
+    echo -e "${RED}❌ Could not detect existing node info.${NC}"
+    echo -e "${YELLOW}Please select manually.${NC}\n"
+    nodeNum=$(ask_input "Enter Node number (1–15 or 0 to exit): ") || exit 0
+    domain="${nodes[$nodeNum]}"
+  fi
+else
+  # --- Manual selection mode ---
+  if [[ -z "${nodes[$nodeNum]}" ]]; then
+    echo -e "${RED}❌ Invalid node number.${NC}"
+    echo -e "${YELLOW}Please try again.${NC}"
+    exec "$0"
+  fi
+  domain="${nodes[$nodeNum]}"
 fi
 
-domain="${nodes[$nodeNum]}"
-echo -e "${GREEN}✅ Selected Node:${NC} $domain\n"
+echo -e "${GREEN}✅ Selected Node:${NC} ${CYAN}$domain${NC}\n"
+
 
 # --- Calculate NodeIDs ---
 for type in "${!nodeTypeID[@]}"; do
