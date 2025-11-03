@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.4"
+version="7.07.5"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -78,11 +78,8 @@ ask_input() {
 # Pre-checks for installation and config
 # ========================================
 check_installation() {
-	echo ""
-	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
-	echo -e "${BOLD}${BLUE}         🔍 Checking environment... "
-	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
-
+	echo ""	
+	echo -e "${BOLD}${BLUE}🔍 Checking environment..."
 	# --- Check if v2bx is installed ---
 	if ! command -v v2bx &>/dev/null; then
 	  echo -e "${RED}❌ V2bX is not installed on this system.${NC}"
@@ -111,7 +108,7 @@ check_installation() {
 show_node_info() {
 	echo ""
 	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
-	echo -e "${BOLD}${BLUE}    🔍 Show Current Nodes information... "
+	echo -e "${BOLD}${BLUE}       🔍 Current Nodes information "
 	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 	# --- Check existing config.json ---
 	config_file="/etc/V2bX/config.json"
