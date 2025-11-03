@@ -160,10 +160,11 @@ echo -e "${BOLD}${BLUE}        ✅  Add Nodes "
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}\n"
-echo -e "  1) ${GREEN}Singbox (Hysteria2)${NC}"
-echo -e "  2) ${GREEN}xRay (VMESS)${NC}"
-echo -e "  3) ${GREEN}xRay (TROJAN)${NC}"
-echo -e "  4) ${GREEN}xRay (VLESS)${NC}"
+echo -e "  1) ${GREEN}xRay (VLESS)${NC}"
+echo -e "  2) ${GREEN}Singbox (Hysteria2)${NC}"
+echo -e "  3) ${GREEN}xRay (VMESS)${NC}"
+echo -e "  4) ${GREEN}xRay (ShadowSocks)${NC}  ${RED}[Not Available]${NC}"
+echo -e "  5) ${GREEN}xRay (TROJAN)${NC}"
 echo ""
 
 read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
@@ -179,10 +180,10 @@ USE_VLESS=false
 IFS=',' read -ra selected <<< "$node_selection"
 for num in "${selected[@]}"; do
   case "${num// /}" in
-    1) USE_HYSTERIA2=true ;;
-    2) USE_VMESS=true ;;
-    3) USE_TROJAN=true ;;
-    4) USE_VLESS=true ;;
+    1) USE_VLESS=true ;;
+    2) USE_HYSTERIA2=true ;;
+    3) USE_VMESS=true ;;
+    5) USE_TROJAN=true ;;
   esac
 done
 
@@ -223,7 +224,8 @@ read -rp "$(echo -e ${YELLOW}"Enter Node number (1–15): "${NC})" nodeNum
 echo ""
 if [[ -z "${nodes[$nodeNum]}" ]]; then
   echo -e "${RED}❌ Invalid node number.${NC}"
-  exit 1
+  echo -e "${YELLOW}Please try again.${NC}"
+  exec "$0"  # restart the script instead of exiting shell
 fi
 
 domain="${nodes[$nodeNum]}"
