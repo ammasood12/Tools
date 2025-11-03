@@ -1,8 +1,10 @@
 #!/bin/bash
 # ========================================
-# 🚀 V2bX Config Updater v7.05
+# 🚀 V2bX Config Updater
 # ========================================
 clear
+# V2bX Config Updater version
+version="7.06"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -83,7 +85,7 @@ fi
 # V2bX CONFIG UPDATER - Main
 # ========================================
 echo -e "${BOLD}${BLUE}==============================================${NC}"
-echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER"
+echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER $version"
 echo -e "${BOLD}${BLUE}==============================================${NC}"
 echo ""
 
@@ -176,14 +178,15 @@ cat <<CONFIG_HEADER
     "Level": "error",
     "Output": ""
   },
-  "Cores": [
 CONFIG_HEADER
 
 # --- Add Cores ---
-coreCount=0
+
+cat <<CORE_HEADER
+  "Cores": [
+CORE_HEADER
 
 if $USE_VLESS || $USE_VMESS || $USE_TROJAN; then
-  ((coreCount++))
   cat <<XRAYCORE
     {
       "Type": "xray",
@@ -198,7 +201,6 @@ XRAYCORE
 fi
 
 if $USE_HYSTERIA2; then
-  ((coreCount++))
   cat <<SINGCORE
     {
       "Type": "sing",
@@ -216,22 +218,17 @@ if $USE_HYSTERIA2; then
 SINGCORE
 fi
 
-if (( coreCount == 0 )); then
-  echo "  ],"
-else
-  echo "  ],"
-fi
+cat <<CORE_FOOTER
+  ],
+CORE_FOOTER
 
 cat <<NODE_HEADER
   "Nodes": [
 NODE_HEADER
 
 # --- Add Nodes ---
-nodeFirst=true
 
 if $USE_HYSTERIA2; then
-  $nodeFirst || echo ","
-  nodeFirst=false
   cat <<SINGNODE
     {
       "Core": "sing",
@@ -242,8 +239,13 @@ if $USE_HYSTERIA2; then
       "Timeout": 30,
       "ListenIP": "::",
       "SendIP": "0.0.0.0",
+      "DeviceOnlineMinTraffic": 200,
+      "MinReportTraffic": 0,
+      "TCPFastOpen": false,
+      "SniffEnabled": true,
       "CertConfig": {
         "CertMode": "$CertMode_hysteria2",
+		"RejectUnknownSni": false,
         "CertDomain": "$domain",
         "CertFile": "/etc/V2bX/fullchain.cer",
         "KeyFile": "/etc/V2bX/cert.key",
@@ -259,8 +261,6 @@ SINGNODE
 fi
 
 if $USE_VMESS; then
-  $nodeFirst || echo ","
-  nodeFirst=false
   cat <<VMESSNODE
     {
       "Core": "xray",
@@ -271,8 +271,15 @@ if $USE_VMESS; then
       "Timeout": 30,
       "ListenIP": "0.0.0.0",
       "SendIP": "0.0.0.0",
+      "DeviceOnlineMinTraffic": 200,
+      "MinReportTraffic": 0,
+      "EnableProxyProtocol": false,
+      "EnableUot": true,
+      "EnableTFO": true,
+      "DNSType": "UseIPv4",
       "CertConfig": {
         "CertMode": "$CertMode_vmess",
+		"RejectUnknownSni": false,
         "CertDomain": "$domain",
         "CertFile": "/etc/V2bX/fullchain.cer",
         "KeyFile": "/etc/V2bX/cert.key",
@@ -288,8 +295,6 @@ VMESSNODE
 fi
 
 if $USE_TROJAN; then
-  $nodeFirst || echo ","
-  nodeFirst=false
   cat <<TROJANNODE
     {
       "Core": "xray",
@@ -300,8 +305,15 @@ if $USE_TROJAN; then
       "Timeout": 30,
       "ListenIP": "0.0.0.0",
       "SendIP": "0.0.0.0",
+      "DeviceOnlineMinTraffic": 200,
+      "MinReportTraffic": 0,
+      "EnableProxyProtocol": false,
+      "EnableUot": true,
+      "EnableTFO": true,
+      "DNSType": "UseIPv4",
       "CertConfig": {
         "CertMode": "$CertMode_trojan",
+        "RejectUnknownSni": false,
         "CertDomain": "$domain",
         "CertFile": "/etc/V2bX/fullchain.cer",
         "KeyFile": "/etc/V2bX/cert.key",
@@ -317,8 +329,6 @@ TROJANNODE
 fi
 
 if $USE_VLESS; then
-  $nodeFirst || echo ","
-  nodeFirst=false
   cat <<VLESSNODE
     {
       "Core": "xray",
@@ -329,8 +339,15 @@ if $USE_VLESS; then
       "Timeout": 30,
       "ListenIP": "0.0.0.0",
       "SendIP": "0.0.0.0",
+      "DeviceOnlineMinTraffic": 200,
+      "MinReportTraffic": 0,
+      "EnableProxyProtocol": false,
+      "EnableUot": true,
+      "EnableTFO": true,
+      "DNSType": "UseIPv4",
       "CertConfig": {
         "CertMode": "$CertMode_vless",
+		"RejectUnknownSni": false,
         "CertDomain": "$domain",
         "CertFile": "/etc/V2bX/fullchain.cer",
         "KeyFile": "/etc/V2bX/cert.key",
@@ -345,8 +362,11 @@ if $USE_VLESS; then
 VLESSNODE
 fi
 
-cat <<CONFIG_FOOTER
+cat <<NODE_FOOTER
   ]
+NODE_FOOTER
+
+cat <<CONFIG_FOOTER
 }
 CONFIG_FOOTER
 
