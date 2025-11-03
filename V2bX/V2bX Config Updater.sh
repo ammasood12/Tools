@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07"
+version="7.07.2"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -132,7 +132,7 @@ if [[ -f "$config_file" ]]; then
 	  }
 	' "$config_file"
 
-	--- Summary ---
+	# --- Summary ---
 	total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
 	total_cores=$(grep -c '"Type"' "$config_file" || true)
 	if (( total_nodes > 0 )); then
@@ -182,10 +182,10 @@ echo -e "${BOLD}${BLUE}───────────────────
 echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}\n"
 echo -e "This will append to original nodeID (e.g. for node 10, nodeTypeID=102)\n"
-echo -e "  1) ${GREEN}VLESS    	  → xRay${NC}"
+echo -e "  1) ${GREEN}VLESS       → xRay${NC}"
 echo -e "  2) ${GREEN}Hysteria2   → Singbox${NC}"
-echo -e "  3) ${GREEN}VMESS    	  → xRay${NC}"
-echo -e "  4) ${GREEN}ShadowSocks → xRa${NC}  ${RED}[Not Available]${NC}"
+echo -e "  3) ${GREEN}VMESS       → xRay${NC}"
+echo -e "  4) ${GREEN}ShadowSocks → xRay${NC}  ${RED}[Not Available]${NC}"
 echo -e "  5) ${GREEN}TROJAN      → xRay${NC}"
 echo ""
 # read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
