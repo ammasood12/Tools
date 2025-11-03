@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.8"
+version="7.07.9"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -23,6 +23,7 @@ Provider="cloudflare" # <-- ❌ Don't Edit
 CertMode_hysteria2="dns"
 CertMode_vmess="dns"
 CertMode_trojan="dns"
+CertMode_shadowsocks="dns"
 CertMode_vless="none"
 
 # --- Node type ID offsets ---
@@ -206,7 +207,7 @@ echo -e "${CYAN}Select which node types you want to include:${NC}\n"
 echo -e "  1) ${GREEN}VLESS       → xRay${NC}"
 echo -e "  2) ${GREEN}Hysteria2   → Singbox${NC}"
 echo -e "  3) ${GREEN}VMESS       → xRay${NC}"
-echo -e "  4) ${GREEN}ShadowSocks → xRay${NC}  ${RED}[Not Available]${NC}"
+echo -e "  4) ${GREEN}ShadowSocks → xRay${NC}"
 echo -e "  5) ${GREEN}TROJAN      → xRay${NC}"
 echo ""
 node_selection=$(ask_input "Enter selection (e.g. 1,3,4 or 0 to exit): ") || exit 0
@@ -227,6 +228,7 @@ for num in "${selected[@]}"; do
     1) USE_VLESS=true ;;
     2) USE_HYSTERIA2=true ;;
     3) USE_VMESS=true ;;
+    3) USE_SHADOWSOCKS=true ;;
     5) USE_TROJAN=true ;;
     *)
       echo -e "${RED}⚠️  Option ${num// /} is not available and will be ignored.${NC}"
@@ -329,10 +331,11 @@ for type in "${!nodeTypeID[@]}"; do
 done
 
 echo -e "${CYAN}Generated Node IDs:${NC}"
-$USE_VLESS && echo -e "  VLESS:     $NodeID_vless"
-$USE_VMESS && echo -e "  VMESS:     $NodeID_vmess"
-$USE_TROJAN && echo -e "  TROJAN:    $NodeID_trojan"
-$USE_HYSTERIA2 && echo -e "  Hysteria2: $NodeID_hysteria2"
+$USE_VLESS && echo -e "  VLESS:        $NodeID_vless"
+$USE_VMESS && echo -e "  VMESS:        $NodeID_vmess"
+$USE_TROJAN && echo -e "  TROJAN:       $NodeID_trojan"
+$USE_SHADOWSOCKS && echo -e "  ShadowSocks:  $NodeID_shadowsocks"
+$USE_HYSTERIA2 && echo -e "  Hysteria2:    $NodeID_hysteria2"
 echo ""
 
 # --- Ensure directory exists ---
@@ -359,7 +362,7 @@ cat <<CORE_HEADER
   "Cores": [
 CORE_HEADER
 
-if $USE_VLESS || $USE_VMESS || $USE_TROJAN; then
+if $USE_VLESS || $USE_VMESS ||  $USE_SHADOWSOCKS || $USE_TROJAN; then
   cat <<XRAYCORE
     {
       "Type": "xray",
@@ -429,7 +432,7 @@ if $USE_HYSTERIA2; then
           "CLOUDFLARE_API_KEY": "$CLOUDFLARE_API_KEY"
         }
       }
-    }$( $USE_VMESS || $USE_TROJAN || $USE_VLESS && echo "," )
+    }$( $USE_VLESS || $USE_SHADOWSOCKS || $USE_TROJAN || $USE_VMESS && echo "," )
 SINGNODE
 fi
 
@@ -463,7 +466,7 @@ if $USE_VMESS; then
           "CLOUDFLARE_API_KEY": "$CLOUDFLARE_API_KEY"
         }
       }
-    }$( $USE_TROJAN || $USE_VLESS && echo "," )
+    }$( $USE_VLESS || $USE_SHADOWSOCKS || $USE_TROJAN && echo "," )
 VMESSNODE
 fi
 
@@ -497,8 +500,42 @@ if $USE_TROJAN; then
           "CLOUDFLARE_API_KEY": "$CLOUDFLARE_API_KEY"
         }
       }
-    }$( $USE_VLESS && echo "," )
+    }$( $USE_VLESS || $USE_SHADOWSOCKS && echo "," )
 TROJANNODE
+fi
+
+if $USE_SHADOWSOCKS; then
+  cat <<SHADOWSOCKSNODE
+    {
+      "Core": "xray",
+      "ApiHost": "$ApiHost",
+      "ApiKey": "$APIKEY",
+      "NodeID": $NodeID_shadowsocks,
+      "NodeType": "shadowsocks",
+      "Timeout": 30,
+      "ListenIP": "0.0.0.0",
+      "SendIP": "0.0.0.0",
+      "DeviceOnlineMinTraffic": 200,
+      "MinReportTraffic": 0,
+      "EnableProxyProtocol": false,
+      "EnableUot": true,
+      "EnableTFO": true,
+      "DNSType": "UseIPv4",
+      "CertConfig": {
+        "CertMode": "$CertMode_shadowsocks",
+        "RejectUnknownSni": false,
+        "CertDomain": "$domain",
+        "CertFile": "/etc/V2bX/fullchain.cer",
+        "KeyFile": "/etc/V2bX/cert.key",
+        "Email": "$Email",
+        "Provider": "$Provider",
+        "DNSEnv": {
+          "CLOUDFLARE_EMAIL": "$CLOUDFLARE_EMAIL",
+          "CLOUDFLARE_API_KEY": "$CLOUDFLARE_API_KEY"
+        }
+      }
+    }$( $USE_VLESS && echo "," )
+SHADOWSOCKSNODE
 fi
 
 if $USE_VLESS; then
