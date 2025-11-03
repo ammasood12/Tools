@@ -55,6 +55,13 @@ declare -A nodeTypeID=(
 )
 
 # ========================================
+# V2bX CONFIG UPDATER - Main
+# ========================================
+echo -e "${BOLD}${BLUE}==============================================${NC}"
+echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER $version"
+echo -e "${BOLD}${BLUE}==============================================${NC}"
+
+# ========================================
 # Configuration values
 # ========================================
 
@@ -62,6 +69,7 @@ declare -A nodeTypeID=(
 if [[ -f /etc/V2bX/keys.conf ]]; then
   source /etc/V2bX/keys.conf
 else
+  echo ""
   echo -e "${RED}❌ Missing /etc/V2bX/keys.conf${NC}"
   echo "==================================================="
   echo -e "${YELLOW}Run the following to set up your keys first:${NC}"
@@ -82,17 +90,9 @@ else
 fi
 
 # ========================================
-# V2bX CONFIG UPDATER - Main
-# ========================================
-echo -e "${BOLD}${BLUE}==============================================${NC}"
-echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER $version"
-echo -e "${BOLD}${BLUE}==============================================${NC}"
-echo ""
-
-# ========================================
 # Select which node types to include
 # ========================================
-
+echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}"
 echo -e "${YELLOW}Enter Y or N for each option below.${NC}\n"
 
