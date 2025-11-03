@@ -132,14 +132,14 @@ if [[ -f "$config_file" ]]; then
 	  }
 	' "$config_file"
 
-	# --- Summary ---
-	# total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
-	# total_cores=$(grep -c '"Type"' "$config_file" || true)
-	# if (( total_nodes > 0 )); then
-	  # echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
-	# else
-	  # echo -e "${RED}No valid nodes found in current config.${NC}\n"
-	# fi
+	--- Summary ---
+	total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
+	total_cores=$(grep -c '"Type"' "$config_file" || true)
+	if (( total_nodes > 0 )); then
+	  echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
+	else
+	  echo -e "${RED}No valid nodes found in current config.${NC}\n"
+	fi
 else
   echo -e "${RED}⚠️ No existing /etc/V2bX/config.json found.${NC}\n"
 fi
@@ -181,13 +181,13 @@ echo -e "${BOLD}${BLUE}        ✅  Add Nodes "
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}\n"
-echo -e "  1) ${GREEN}xRay (VLESS)${NC}"
-echo -e "  2) ${GREEN}Singbox (Hysteria2)${NC}"
-echo -e "  3) ${GREEN}xRay (VMESS)${NC}"
-echo -e "  4) ${GREEN}xRay (ShadowSocks)${NC}  ${RED}[Not Available]${NC}"
-echo -e "  5) ${GREEN}xRay (TROJAN)${NC}"
+echo -e "This will append to original nodeID (e.g. for node 10, nodeTypeID=102)\n"
+echo -e "  1) ${GREEN}VLESS    	  → xRay${NC}"
+echo -e "  2) ${GREEN}Hysteria2   → Singbox${NC}"
+echo -e "  3) ${GREEN}VMESS    	  → xRay${NC}"
+echo -e "  4) ${GREEN}ShadowSocks → xRa${NC}  ${RED}[Not Available]${NC}"
+echo -e "  5) ${GREEN}TROJAN      → xRay${NC}"
 echo ""
-
 # read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
 node_selection=$(ask_input "Enter selection (e.g. 1,3,4 or 0 to exit): ") || exit 0
 echo ""
@@ -199,6 +199,7 @@ USE_TROJAN=false
 USE_VLESS=false
 
 # Convert input into array and enable chosen ones
+invalid_found=false
 IFS=',' read -ra selected <<< "$node_selection"
 for num in "${selected[@]}"; do
   case "${num// /}" in
@@ -206,8 +207,17 @@ for num in "${selected[@]}"; do
     2) USE_HYSTERIA2=true ;;
     3) USE_VMESS=true ;;
     5) USE_TROJAN=true ;;
+    *)
+      echo -e "${RED}⚠️  Option ${num// /} is not available and will be ignored.${NC}"
+      invalid_found=true
+      ;;
   esac
 done
+
+if $invalid_found; then
+  echo -e "${YELLOW}ℹ️  Some selections were invalid and skipped.${NC}\n"
+fi
+
 
 # Show confirmation
 echo -e "${GREEN}✅ Node type selection complete:${NC}"
@@ -226,10 +236,10 @@ echo -e "  • Backup ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Replace ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Use API Key: ${CYAN}${APIKEY}${NC}"
 echo -e "  • Configure active sections:${NC}"
-echo -e "      ▷ ${CYAN}Singbox Hysteria2:${NC} $USE_HYSTERIA2"
-echo -e "      ▷ ${CYAN}xRay    VLESS:${NC}     $USE_VLESS"
-echo -e "      ▷ ${CYAN}xRay    VMESS:${NC}     $USE_VMESS"
-echo -e "      ▷ ${CYAN}xRay    TROJAN:${NC}    $USE_TROJAN"
+echo -e "      ▷ ${CYAN}VLESS    	→ xRay:${NC}     $USE_VLESS"
+echo -e "      ▷ ${CYAN}Hysteria2	→ Singbox:${NC}  $USE_VMESS"
+echo -e "      ▷ ${CYAN}VMESS		→ xRay:${NC}     $USE_VMESS"
+echo -e "      ▷ ${CYAN}TROJAN		→ xRay:${NC}     $USE_TROJAN"
 echo -e "  • Automatically restart V2bX\n"
 
 # --- Display nodes ---
