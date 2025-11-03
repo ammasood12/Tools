@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.2"
+version="7.07.3"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -193,10 +193,11 @@ node_selection=$(ask_input "Enter selection (e.g. 1,3,4 or 0 to exit): ") || exi
 echo ""
 
 # Reset all options
+USE_VLESS=false
 USE_HYSTERIA2=false
 USE_VMESS=false
+USE_SHADOWSOCKS=false
 USE_TROJAN=false
-USE_VLESS=false
 
 # Convert input into array and enable chosen ones
 invalid_found=false
@@ -236,10 +237,11 @@ echo -e "  • Backup ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Replace ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Use API Key: ${CYAN}${APIKEY}${NC}"
 echo -e "  • Configure active sections:${NC}"
-echo -e "      ▷ ${CYAN}VLESS    	→ xRay:${NC}     $USE_VLESS"
-echo -e "      ▷ ${CYAN}Hysteria2	→ Singbox:${NC}  $USE_VMESS"
-echo -e "      ▷ ${CYAN}VMESS		→ xRay:${NC}     $USE_VMESS"
-echo -e "      ▷ ${CYAN}TROJAN		→ xRay:${NC}     $USE_TROJAN"
+echo -e "      ▷ ${CYAN}VLESS       → xRay:${NC}     $USE_VLESS"
+echo -e "      ▷ ${CYAN}Hysteria2   → Singbox:${NC}  $USE_HYSTERIA2"
+echo -e "      ▷ ${CYAN}VMESS       → xRay:${NC}     $USE_VMESS"
+echo -e "      ▷ ${CYAN}ShadowSocks → xRay:${NC}     $USE_SHADOWSOCKS"
+echo -e "      ▷ ${CYAN}TROJAN      → xRay:${NC}     $USE_TROJAN"
 echo -e "  • Automatically restart V2bX\n"
 
 # --- Display nodes ---
