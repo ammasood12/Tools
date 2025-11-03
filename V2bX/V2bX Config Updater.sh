@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.7"
+version="7.07.8"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -25,34 +25,70 @@ CertMode_vmess="dns"
 CertMode_trojan="dns"
 CertMode_vless="none"
 
-# --- Node list ---
-# [NodeID]="domain.com"
-declare -A nodes=(
-  [1]="ln-sg.phicloud.shop"
-  [2]="sg-1.phicloud.shop"
-  [3]="jp2.phicloud.shop"
-  [4]="jplinode.phicloud.shop"
-  [5]="jp-1.phicloud.shop"
-  [6]="bv-hk.phicloud.shop"
-  [7]="ln-us1-la.phicloud.shop"
-  [8]="ph-manila.phicloud.shop"
-  [9]="us-2.phicloud.shop"
-  [10]="hk-1.phicloud.shop"
-  [11]="ni-tw2.phicloud.shop"
-  [12]="test2.phicloud.shop"
-  [13]="ac-hk.phicloud.shop"
-  [14]="au-1.phicloud.shop"
-  [15]="sg-3.phicloud.shop"
-)
-
 # --- Node type ID offsets ---
 # these will append to nodeID e.g. for node 10, nodeTypeID=102
 declare -A nodeTypeID=(
   ["vless"]=1
   ["hysteria2"]=2
   ["vmess"]=3
+  ["shadowsocks"]=4
   ["trojan"]=5
 )
+
+# ========================================
+# Check Configuration values
+# ========================================
+check_config_values() {
+	# --- Load API info-details from /etc/V2bX/info-details.conf ---
+	if [[ -f /etc/V2bX/info-details.conf ]]; then
+	  source /etc/V2bX/info-details.conf
+	else
+	  echo ""
+	  echo -e "${RED}❌ Missing /etc/V2bX/info-details.conf${NC}"
+	  echo "==================================================="
+	  echo -e "${YELLOW}Run the following to set up your info-details first:${NC}"
+	  echo "==================================================="
+	  echo "cat <<EOF > /etc/V2bX/info-details.conf"
+	  echo "ApiHost=\"your_api_host_here\""
+	  echo "APIKEY=\"your_api_key_here\""
+	  echo "Email=\"your_email_here\""  
+	  echo "CLOUDFLARE_EMAIL=\"your_cloudflare_email_here\""
+	  echo "CLOUDFLARE_API_KEY=\"your_cloudflare_api_key_here\""
+	  echo "EOF"
+	  echo "chmod 600 /etc/V2bX/info-details.conf"
+	  echo "========================="
+	  echo "Or use one line command"
+	  echo "========================="
+	  echo "echo 'ApiHost="your_api_host_here"\nAPIKEY="your_api_key_here"\nEmail="your_email_here"\nCLOUDFLARE_EMAIL="your_cloudflare_email_here"\nCLOUDFLARE_API_KEY="your_cloudflare_api_key_here"' | sed 's/\\n/\n/g' > /etc/V2bX/info-details.conf && chmod 600 /etc/V2bX/info-details.conf"
+	  exit 1
+	fi
+}
+
+# ========================================
+# Nodes list
+# ========================================
+# [NodeID]="domain.com"
+declare -A nodes
+
+# Load domains.conf if available
+if [[ -f /etc/V2bX/info-domains.conf ]]; then
+  while IFS='=' read -r key value; do
+    # skip comments and empty lines
+    [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+    key="${key//\"/}"
+    value="${value//\"/}"
+    nodes["$key"]="$value"
+  done < /etc/V2bX/info-domains.conf
+else
+  echo -e "${RED}⚠️  Missing /etc/V2bX/info-domains.conf file.${NC}"
+  echo -e "${YELLOW}Please create it using:${NC}"
+  echo "cat <<EOF > /etc/V2bX/info-domains.conf"
+  echo "1=\"sub1.domain.com\""
+  echo "2=\"sub2.domain.com\""
+  echo "..."
+  echo "EOF"
+  exit 1
+fi
 
 # ========================================
 # --- Universal Safe Input Function ---
@@ -141,35 +177,6 @@ show_node_info() {
 		fi
 	else
 	  echo -e "${RED}⚠️ No existing /etc/V2bX/config.json found.${NC}\n"
-	fi
-}
-
-# ========================================
-# Check Configuration values
-# ========================================
-check_config_values() {
-	# --- Load API keys from /etc/V2bX/keys.conf ---
-	if [[ -f /etc/V2bX/keys.conf ]]; then
-	  source /etc/V2bX/keys.conf
-	else
-	  echo ""
-	  echo -e "${RED}❌ Missing /etc/V2bX/keys.conf${NC}"
-	  echo "==================================================="
-	  echo -e "${YELLOW}Run the following to set up your keys first:${NC}"
-	  echo "==================================================="
-	  echo "cat <<EOF > /etc/V2bX/keys.conf"
-	  echo "ApiHost=\"your_api_host_here\""
-	  echo "APIKEY=\"your_api_key_here\""
-	  echo "Email=\"your_email_here\""  
-	  echo "CLOUDFLARE_EMAIL=\"your_cloudflare_email_here\""
-	  echo "CLOUDFLARE_API_KEY=\"your_cloudflare_api_key_here\""
-	  echo "EOF"
-	  echo "chmod 600 /etc/V2bX/keys.conf"
-	  echo "========================="
-	  echo "Or use one line command"
-	  echo "========================="
-	  echo "echo 'ApiHost="your_api_host_here"\nAPIKEY="your_api_key_here"\nEmail="your_email_here"\nCLOUDFLARE_EMAIL="your_cloudflare_email_here"\nCLOUDFLARE_API_KEY="your_cloudflare_api_key_here"' | sed 's/\\n/\n/g' > /etc/V2bX/keys.conf && chmod 600 /etc/V2bX/keys.conf"
-	  exit 1
 	fi
 }
 
