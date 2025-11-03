@@ -55,6 +55,27 @@ declare -A nodeTypeID=(
 )
 
 # ========================================
+# --- Universal Safe Input Function ---
+# ========================================
+
+ask_input() {
+  local prompt="$1"
+  read -rp "$(echo -e ${YELLOW}$prompt${NC})" reply
+  if [[ -z "$reply" || "$reply" == "0" ]]; then
+    echo -e "${RED}🚪 Exiting script...${NC}"
+    # if the script is sourced, just return
+    if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+      return 1
+    else
+      # if it's executed normally, exit only the script
+      kill $$
+    fi
+  fi
+  echo "$reply"
+}
+
+
+# ========================================
 # V2bX CONFIG UPDATER - Main
 # ========================================
 echo -e "${BOLD}${BLUE}==============================================${NC}"
@@ -72,7 +93,7 @@ echo -e "${BOLD}${BLUE}───────────────────
 # --- Check if v2bx is installed ---
 if ! command -v v2bx &>/dev/null; then
   echo -e "${RED}❌ V2bX is not installed on this system.${NC}"
-  read -rp "$(echo -e ${YELLOW}"Do you want to install it now? [Y/n]: "${NC})" installAns
+  installAns=$(ask_input "Do you want to install it now? [Y/n]: ") || exit 0
   if [[ ! "$installAns" =~ ^[Nn]$ ]]; then
     echo -e "${CYAN}⬇️ Installing V2bX...${NC}"
     bash <(wget -qO- https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh)
@@ -167,7 +188,8 @@ echo -e "  4) ${GREEN}xRay (ShadowSocks)${NC}  ${RED}[Not Available]${NC}"
 echo -e "  5) ${GREEN}xRay (TROJAN)${NC}"
 echo ""
 
-read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
+# read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
+node_selection=$(ask_input "Enter selection (e.g. 1,3,4 or 0 to exit): ") || exit 0
 echo ""
 
 # Reset all options
@@ -220,7 +242,8 @@ done
 echo -e "${BLUE}──────────────────────────────────────────────${NC}\n"
 
 # --- Select node ---
-read -rp "$(echo -e ${YELLOW}"Enter Node number (1–15): "${NC})" nodeNum
+# read -rp "$(echo -e ${YELLOW}"Enter Node number (1–15): "${NC})" nodeNum
+nodeNum=$(ask_input "Enter Node number (1–15 or 0 to exit): ") || exit 0
 echo ""
 if [[ -z "${nodes[$nodeNum]}" ]]; then
   echo -e "${RED}❌ Invalid node number.${NC}"
