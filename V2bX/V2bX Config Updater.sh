@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.5"
+version="7.07.6"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -79,7 +79,7 @@ ask_input() {
 # ========================================
 check_installation() {
 	echo ""	
-	echo -e "${BOLD}${BLUE}🔍 Checking environment..."
+	# echo -e "${BOLD}${BLUE}🔍 Checking environment..."
 	# --- Check if v2bx is installed ---
 	if ! command -v v2bx &>/dev/null; then
 	  echo -e "${RED}❌ V2bX is not installed on this system.${NC}"
@@ -196,14 +196,12 @@ echo -e "${BOLD}${BLUE}             ➕ Add Nodes "
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}\n"
-echo -e "This will append to original nodeID (e.g. for node 10, nodeTypeID=102)\n"
 echo -e "  1) ${GREEN}VLESS       → xRay${NC}"
 echo -e "  2) ${GREEN}Hysteria2   → Singbox${NC}"
 echo -e "  3) ${GREEN}VMESS       → xRay${NC}"
 echo -e "  4) ${GREEN}ShadowSocks → xRay${NC}  ${RED}[Not Available]${NC}"
 echo -e "  5) ${GREEN}TROJAN      → xRay${NC}"
 echo ""
-# read -rp "$(echo -e ${YELLOW}"Enter selection (e.g. 1,3,4): "${NC})" node_selection
 node_selection=$(ask_input "Enter selection (e.g. 1,3,4 or 0 to exit): ") || exit 0
 echo ""
 
@@ -234,10 +232,8 @@ if $invalid_found; then
   echo -e "${YELLOW}ℹ️  Some selections were invalid and skipped.${NC}\n"
 fi
 
-
 # Show confirmation
 echo -e "${GREEN}✅ Node type selection complete:${NC}"
-
 
 # ========================================
 # Selection Summary 
@@ -261,11 +257,15 @@ echo -e "  • Automatically restart V2bX\n"
 
 # --- Display nodes ---
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+echo -e "${BOLD}${BLUE}        🛫  Select Node ID & Domain"
+echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo -e "${BOLD} No │ Domain${NC}"
-echo -e "${BLUE}──────────────────────────────────────────────${NC}"
+echo -e "${BLUE}----------------------------------------------${NC}"
 for i in $(seq 1 15); do
   printf "${CYAN} %2s ${NC}│ %s\n" "$i" "${nodes[$i]}"
 done
+echo ""
+echo -e "Original nodeID will be appended (e.g. for node 10, nodeTypeID=102)"
 echo -e "${BLUE}──────────────────────────────────────────────${NC}\n"
 
 # --- Select node ---
