@@ -97,13 +97,13 @@ echo -e "${YELLOW}Enter Y or N for each option below.${NC}\n"
 read -rp "Include Singbox (Hysteria2)? [Y/n]: " ans
 [[ "$ans" =~ ^[Nn]$ ]] && USE_HYSTERIA2=false || USE_HYSTERIA2=true
 
-read -rp "Include xRay (VMESS)? [Y/n]: " ans
+read -rp "Include xRay    (VMESS)?     [Y/n]: " ans
 [[ "$ans" =~ ^[Nn]$ ]] && USE_VMESS=false || USE_VMESS=true
 
-read -rp "Include xRay (TROJAN)? [Y/n]: " ans
+read -rp "Include xRay    (TROJAN)?    [Y/n]: " ans
 [[ "$ans" =~ ^[Nn]$ ]] && USE_TROJAN=false || USE_TROJAN=true
 
-read -rp "Include xRay (VLESS)? [Y/n]: " ans
+read -rp "Include xRay    (VLESS)?     [Y/n]: " ans
 [[ "$ans" =~ ^[Nn]$ ]] && USE_VLESS=false || USE_VLESS=true
 
 echo ""
