@@ -4,7 +4,7 @@
 # ========================================
 clear
 # V2bX Config Updater version
-version="7.07.3"
+version="7.07.4"
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -74,6 +74,107 @@ ask_input() {
   echo "$reply"
 }
 
+# ========================================
+# Pre-checks for installation and config
+# ========================================
+check_installation() {
+	echo ""
+	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+	echo -e "${BOLD}${BLUE}         🔍 Checking environment... "
+	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+
+	# --- Check if v2bx is installed ---
+	if ! command -v v2bx &>/dev/null; then
+	  echo -e "${RED}❌ V2bX is not installed on this system.${NC}"
+	  installAns=$(ask_input "Do you want to install it now? [Y/n]: ") || exit 0
+	  if [[ ! "$installAns" =~ ^[Nn]$ ]]; then
+		echo -e "${CYAN}⬇️ Installing V2bX...${NC}"
+		bash <(wget -qO- https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh)
+		if command -v v2bx &>/dev/null; then
+		  echo -e "${GREEN}✅ V2bX installed successfully.${NC}\n"
+		else
+		  echo -e "${RED}❌ Installation failed. Please install manually.${NC}"
+		  exit 1
+		fi
+	  else
+		echo -e "${YELLOW}⚠️ Skipping installation. Exiting.${NC}"
+		exit 1
+	  fi
+	else
+	  echo -e "${GREEN}✅ V2bX detected.${NC}"
+	fi
+}
+
+# ========================================
+#  Get installed node information
+# ========================================
+show_node_info() {
+	echo ""
+	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+	echo -e "${BOLD}${BLUE}    🔍 Show Current Nodes information... "
+	echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+	# --- Check existing config.json ---
+	config_file="/etc/V2bX/config.json"
+	if [[ -f "$config_file" ]]; then
+		echo -e "\n${CYAN}📄 Checking existing config.json...${NC}"
+
+		# --- Extract node info (Core + NodeType + NodeID + CertDomain) ---
+		echo -e "${YELLOW}Detected Nodes and Cores:${NC}"
+
+		awk '
+		  /"Core":/ {core=$2; gsub(/"|,/, "", core)}
+		  /"NodeType":/ {node=$2; gsub(/"|,/, "", node)}
+		  /"NodeID":/ {id=$2; gsub(/,/, "", id)}
+		  /"CertDomain":/ {
+			domain=$2; gsub(/"|,/, "", domain);
+			if (core != "" && node != "") {
+			  printf "  • %-5s → %-10s | NodeID: %-4s | Domain: %s\n", core, node, id, domain;
+			  core=node=id=domain="";
+			}
+		  }
+		' "$config_file"
+
+		# --- Summary ---
+		total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
+		total_cores=$(grep -c '"Type"' "$config_file" || true)
+		if (( total_nodes > 0 )); then
+		  echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
+		else
+		  echo -e "${RED}No valid nodes found in current config.${NC}\n"
+		fi
+	else
+	  echo -e "${RED}⚠️ No existing /etc/V2bX/config.json found.${NC}\n"
+	fi
+}
+
+# ========================================
+# Check Configuration values
+# ========================================
+check_config_values() {
+	# --- Load API keys from /etc/V2bX/keys.conf ---
+	if [[ -f /etc/V2bX/keys.conf ]]; then
+	  source /etc/V2bX/keys.conf
+	else
+	  echo ""
+	  echo -e "${RED}❌ Missing /etc/V2bX/keys.conf${NC}"
+	  echo "==================================================="
+	  echo -e "${YELLOW}Run the following to set up your keys first:${NC}"
+	  echo "==================================================="
+	  echo "cat <<EOF > /etc/V2bX/keys.conf"
+	  echo "ApiHost=\"your_api_host_here\""
+	  echo "APIKEY=\"your_api_key_here\""
+	  echo "Email=\"your_email_here\""  
+	  echo "CLOUDFLARE_EMAIL=\"your_cloudflare_email_here\""
+	  echo "CLOUDFLARE_API_KEY=\"your_cloudflare_api_key_here\""
+	  echo "EOF"
+	  echo "chmod 600 /etc/V2bX/keys.conf"
+	  echo "========================="
+	  echo "Or use one line command"
+	  echo "========================="
+	  echo "echo 'ApiHost="your_api_host_here"\nAPIKEY="your_api_key_here"\nEmail="your_email_here"\nCLOUDFLARE_EMAIL="your_cloudflare_email_here"\nCLOUDFLARE_API_KEY="your_cloudflare_api_key_here"' | sed 's/\\n/\n/g' > /etc/V2bX/keys.conf && chmod 600 /etc/V2bX/keys.conf"
+	  exit 1
+	fi
+}
 
 # ========================================
 # V2bX CONFIG UPDATER - Main
@@ -82,102 +183,19 @@ echo -e "${BOLD}${BLUE}==============================================${NC}"
 echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER $version"
 echo -e "${BOLD}${BLUE}==============================================${NC}"
 
-# ========================================
-# Pre-checks for installation and config
-# ========================================
-echo ""
-echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
-echo -e "${BOLD}${BLUE}        🔍 Checking environment... "
-echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+# --- Check installation or install ---
+check_installation
+# --- Check existing config.json & show information ---
+show_node_info
+# --- Check required configuration values ---
+check_config_values
 
-# --- Check if v2bx is installed ---
-if ! command -v v2bx &>/dev/null; then
-  echo -e "${RED}❌ V2bX is not installed on this system.${NC}"
-  installAns=$(ask_input "Do you want to install it now? [Y/n]: ") || exit 0
-  if [[ ! "$installAns" =~ ^[Nn]$ ]]; then
-    echo -e "${CYAN}⬇️ Installing V2bX...${NC}"
-    bash <(wget -qO- https://raw.githubusercontent.com/wyx2685/V2bX-script/master/install.sh)
-    if command -v v2bx &>/dev/null; then
-      echo -e "${GREEN}✅ V2bX installed successfully.${NC}\n"
-    else
-      echo -e "${RED}❌ Installation failed. Please install manually.${NC}"
-      exit 1
-    fi
-  else
-    echo -e "${YELLOW}⚠️ Skipping installation. Exiting.${NC}"
-    exit 1
-  fi
-else
-  echo -e "${GREEN}✅ V2bX detected.${NC}"
-fi
-
-# --- Check existing config.json ---
-config_file="/etc/V2bX/config.json"
-if [[ -f "$config_file" ]]; then
-	echo -e "\n${CYAN}📄 Checking existing config.json...${NC}"
-
-	# --- Extract node info (Core + NodeType + NodeID + CertDomain) ---
-	echo -e "${YELLOW}Detected Nodes and Cores:${NC}"
-
-	awk '
-	  /"Core":/ {core=$2; gsub(/"|,/, "", core)}
-	  /"NodeType":/ {node=$2; gsub(/"|,/, "", node)}
-	  /"NodeID":/ {id=$2; gsub(/,/, "", id)}
-	  /"CertDomain":/ {
-		domain=$2; gsub(/"|,/, "", domain);
-		if (core != "" && node != "") {
-		  printf "  • %-5s → %-10s | NodeID: %-4s | Domain: %s\n", core, node, id, domain;
-		  core=node=id=domain="";
-		}
-	  }
-	' "$config_file"
-
-	# --- Summary ---
-	total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
-	total_cores=$(grep -c '"Type"' "$config_file" || true)
-	if (( total_nodes > 0 )); then
-	  echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
-	else
-	  echo -e "${RED}No valid nodes found in current config.${NC}\n"
-	fi
-else
-  echo -e "${RED}⚠️ No existing /etc/V2bX/config.json found.${NC}\n"
-fi
-
-
-# ========================================
-# Configuration values
-# ========================================
-
-# --- Load API keys from /etc/V2bX/keys.conf ---
-if [[ -f /etc/V2bX/keys.conf ]]; then
-  source /etc/V2bX/keys.conf
-else
-  echo ""
-  echo -e "${RED}❌ Missing /etc/V2bX/keys.conf${NC}"
-  echo "==================================================="
-  echo -e "${YELLOW}Run the following to set up your keys first:${NC}"
-  echo "==================================================="
-  echo "cat <<EOF > /etc/V2bX/keys.conf"
-  echo "ApiHost=\"your_api_host_here\""
-  echo "APIKEY=\"your_api_key_here\""
-  echo "Email=\"your_email_here\""  
-  echo "CLOUDFLARE_EMAIL=\"your_cloudflare_email_here\""
-  echo "CLOUDFLARE_API_KEY=\"your_cloudflare_api_key_here\""
-  echo "EOF"
-  echo "chmod 600 /etc/V2bX/keys.conf"
-  echo "========================="
-  echo "Or use one line command"
-  echo "========================="
-  echo "echo 'ApiHost="your_api_host_here"\nAPIKEY="your_api_key_here"\nEmail="your_email_here"\nCLOUDFLARE_EMAIL="your_cloudflare_email_here"\nCLOUDFLARE_API_KEY="your_cloudflare_api_key_here"' | sed 's/\\n/\n/g' > /etc/V2bX/keys.conf && chmod 600 /etc/V2bX/keys.conf"
-  exit 1
-fi
 
 # ========================================
 # Select which node types to include
 # ========================================
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
-echo -e "${BOLD}${BLUE}        ✅  Add Nodes "
+echo -e "${BOLD}${BLUE}             ➕ Add Nodes "
 echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
 echo ""
 echo -e "${CYAN}Select which node types you want to include:${NC}\n"
@@ -491,3 +509,6 @@ CONFIG_FOOTER
 echo -e "${GREEN}✅ Config successfully generated and saved.${NC}\n"
 echo -e "${YELLOW}🔄 Restarting V2bX...${NC}"
 v2bx restart
+
+# --- Check existing config.json & show information ---
+show_node_info
