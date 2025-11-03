@@ -1,7 +1,8 @@
 #!/bin/bash
-# vnstat-helper.sh — Minimal vnStat Manager with Auto Setup + Options
-# Author: ChatGPT
-# Location for all data/logs: /root/vnstat-helper/
+# vnstat-helper.sh — Smart vnStat Manager with Auto Setup + Explanations
+# All data stored in /root/vnstat-helper/
+
+version="v1.02"
 
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
@@ -24,7 +25,7 @@ get_vnstat_total_gb() {
 
 check_vnstat() {
   if ! command -v vnstat >/dev/null 2>&1; then
-    echo "Installing vnStat..."
+    echo "Installing vnStat (network usage tracker)..."
     sudo apt update -qq && sudo apt install vnstat jq -y
     sudo systemctl enable vnstat
     sudo systemctl start vnstat
@@ -33,6 +34,7 @@ check_vnstat() {
 }
 
 record_baseline() {
+  echo "→ Collecting system traffic counters from ip -s link..."
   read RX TX <<<$(ip -s link show "$IFACE" | awk '/RX:/{getline; rx=$1} /TX:/{getline; tx=$1} END{print rx, tx}')
   RX_GB=$(bytes_to_gb $RX); TX_GB=$(bytes_to_gb $TX)
   TOTAL_GB=$(echo "scale=2; $RX_GB + $TX_GB" | bc)
@@ -44,12 +46,15 @@ record_baseline() {
     echo "RECORDED_TIME=\"$CURRENT_TIME\""
   } | sudo tee "$DATA_FILE" >/dev/null
   sudo chmod 600 "$DATA_FILE"
+  echo "✅ Baseline recorded at $DATA_FILE"
 }
 
 show_combined_summary() {
+  echo "→ Calculating total traffic since boot and vnStat installation..."
   source "$DATA_FILE"
   VNSTAT_TOTAL=$(get_vnstat_total_gb)
   COMBINED_TOTAL=$(echo "scale=2; $BASE_TOTAL + $VNSTAT_TOTAL" | bc)
+  echo ""
   echo "Baseline: $BASE_TOTAL GB"
   echo "vnStat:   $VNSTAT_TOTAL GB"
   echo "Total:    $COMBINED_TOTAL GB"
@@ -57,38 +62,44 @@ show_combined_summary() {
 }
 
 reset_vnstat() {
+  echo "→ Resetting vnStat database (keeps installation, clears usage data)..."
   sudo systemctl stop vnstat
   sudo rm -rf /var/lib/vnstat
   sudo mkdir /var/lib/vnstat
   sudo chown vnstat:vnstat /var/lib/vnstat
   sudo systemctl start vnstat
+  echo "✅ vnStat database reset and restarted."
 }
 
 install_vnstat() {
+  echo "→ Installing vnStat and dependencies..."
   sudo apt update -qq && sudo apt install vnstat jq -y
   sudo systemctl enable vnstat
   sudo systemctl start vnstat
   sleep 2
   date +%s | sudo tee "$INSTALL_TIME_FILE" >/dev/null
+  echo "✅ vnStat installed successfully."
 }
 
 uninstall_vnstat() {
+  echo "→ Removing vnStat and all its data..."
   sudo systemctl stop vnstat
   sudo apt purge vnstat -y
   sudo rm -rf /var/lib/vnstat /etc/vnstat.conf "$INSTALL_TIME_FILE"
+  echo "✅ vnStat fully uninstalled."
 }
 
 daily_summary_toggle() {
   if [ -f "$CRON_FILE" ]; then
     sudo rm -f "$CRON_FILE"
-    echo "❎ Daily summary disabled."
+    echo "❎ Disabled automatic daily summary logging."
   else
     echo "0 0 * * * root /usr/local/bin/vnstat-helper.sh --daily >> $DAILY_LOG 2>&1" | sudo tee "$CRON_FILE" >/dev/null
-    echo "✅ Daily summary enabled. Logs → $DAILY_LOG"
+    echo "✅ Enabled automatic daily summary logging (logs → $DAILY_LOG)"
   fi
 }
 
-# Run daily summary (for cron)
+# Daily run (for cron)
 if [[ "$1" == "--daily" ]]; then
   [ ! -f "$DATA_FILE" ] && exit 0
   source "$DATA_FILE"
@@ -99,7 +110,7 @@ if [[ "$1" == "--daily" ]]; then
 fi
 
 # ───────────────────────────────────────────────
-# Auto setup
+# Auto setup logic
 # ───────────────────────────────────────────────
 check_vnstat
 [ ! -f "$INSTALL_TIME_FILE" ] && date +%s | sudo tee "$INSTALL_TIME_FILE" >/dev/null
@@ -107,9 +118,11 @@ VNSTAT_INSTALL_TIME=$(cat "$INSTALL_TIME_FILE")
 BASELINE_TIME=0
 [ -f "$DATA_FILE" ] && BASELINE_TIME=$(date -d "$(grep RECORDED_TIME "$DATA_FILE" | cut -d'"' -f2)" +%s 2>/dev/null || echo 0)
 [ ! -f "$DATA_FILE" ] && record_baseline
-if [ "$BASELINE_TIME" -lt "$VNSTAT_INSTALL_TIME" ]; then
-  read -rp "Baseline older than vnStat install. Reinstall vnStat for better data? (y/n): " a
-  [[ "$a" =~ ^[Yy]$ ]] && uninstall_vnstat && install_vnstat && record_baseline
+
+if [ "$BASELINE_TIME" -lt "$VNSTAT_INSTALL_TIME" ] && [ "$BASELINE_TIME" != "0" ]; then
+  echo "⚠️ Baseline is older than vnStat installation."
+  echo "→ To ensure accuracy, vnStat database will be reset for a fresh start."
+  reset_vnstat
 fi
 
 # ───────────────────────────────────────────────
@@ -118,7 +131,7 @@ fi
 while true; do
   clear
   echo "=============================="
-  echo "      VNSTAT CONTROL PANEL"
+  echo "   VNSTAT CONTROL PANEL $version"
   echo "=============================="
   echo "1) Daily usage"
   echo "2) Weekly usage"
@@ -127,7 +140,7 @@ while true; do
   echo "5) Live monitor"
   echo "6) Combined total"
   echo "7) Export JSON"
-  echo "8) Reset vnStat"
+  echo "8) Reset vnStat database"
   echo "9) Install vnStat"
   echo "10) Uninstall vnStat"
   echo "11) Enable/Disable daily summary"
@@ -137,21 +150,21 @@ while true; do
   read -rp "Select option [1-13]: " ch
   echo ""
   case $ch in
-    1) vnstat -i "$IFACE" -d ;;
-    2) vnstat -i "$IFACE" -w ;;
-    3) vnstat -i "$IFACE" -m ;;
-    4) vnstat -i "$IFACE" -h ;;
-    5) vnstat -i "$IFACE" -l ;;
-    6) show_combined_summary ;;
-    7) vnstat -i "$IFACE" --json > "$BASE_DIR/vnstat-export.json" && echo "Exported → $BASE_DIR/vnstat-export.json" ;;
-    8) reset_vnstat ;;
-    9) install_vnstat ;;
-    10) uninstall_vnstat ;;
-    11) daily_summary_toggle ;;
-    12) sudo tail -n 20 "$LOG_FILE" 2>/dev/null || echo "No logs yet." ;;
-    13) exit 0 ;;
-    *) echo "Invalid option." ;;
+    1) echo "→ Showing daily traffic usage (received/sent per day):"; vnstat -i "$IFACE" -d ;;
+    2) echo "→ Showing weekly usage summary (7-day totals):"; vnstat -i "$IFACE" -w ;;
+    3) echo "→ Showing monthly usage overview:"; vnstat -i "$IFACE" -m ;;
+    4) echo "→ Showing hourly usage (last 24 hours):"; vnstat -i "$IFACE" -h ;;
+    5) echo "→ Live real-time bandwidth monitor (press Ctrl+C to stop):"; vnstat -i "$IFACE" -l ;;
+    6) echo "→ Calculating and displaying total traffic:"; show_combined_summary ;;
+    7) echo "→ Exporting vnStat data to JSON:"; vnstat -i "$IFACE" --json > "$BASE_DIR/vnstat-export.json" && echo "✅ Exported → $BASE_DIR/vnstat-export.json" ;;
+    8) echo "→ This clears vnStat data (not uninstall)."; reset_vnstat ;;
+    9) echo "→ Installing vnStat manually..."; install_vnstat ;;
+    10) echo "→ Uninstalling vnStat completely..."; uninstall_vnstat ;;
+    11) echo "→ Toggle daily auto summary:"; daily_summary_toggle ;;
+    12) echo "→ Showing last 20 log entries:"; sudo tail -n 20 "$LOG_FILE" 2>/dev/null || echo "No logs yet." ;;
+    13) echo "👋 Exiting vnStat helper."; exit 0 ;;
+    *) echo "Invalid option. Try again." ;;
   esac
   echo ""
-  read -rp "Press Enter to continue..."
+  read -rp "Press Enter to return to menu..."
 done
