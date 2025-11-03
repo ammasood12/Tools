@@ -112,13 +112,13 @@ if [[ -f "$config_file" ]]; then
 	' "$config_file"
 
 	# --- Summary ---
-	total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
-	total_cores=$(grep -c '"Type"' "$config_file" || true)
-	if (( total_nodes > 0 )); then
-	  echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
-	else
-	  echo -e "${RED}No valid nodes found in current config.${NC}\n"
-	fi
+	# total_nodes=$(grep -c '"NodeType"' "$config_file" || true)
+	# total_cores=$(grep -c '"Type"' "$config_file" || true)
+	# if (( total_nodes > 0 )); then
+	  # echo -e "\n${CYAN}Summary:${NC} $total_nodes node(s), $total_cores core(s)\n"
+	# else
+	  # echo -e "${RED}No valid nodes found in current config.${NC}\n"
+	# fi
 else
   echo -e "${RED}⚠️ No existing /etc/V2bX/config.json found.${NC}\n"
 fi
