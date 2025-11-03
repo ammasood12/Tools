@@ -2,7 +2,7 @@
 # ========================================
 # 🚀 V2bX Config Updater v7.05
 # ========================================
-
+clear
 # --- Colors ---
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
@@ -23,13 +23,8 @@ CertMode_vmess="dns"
 CertMode_trojan="dns"
 CertMode_vless="none"
 
-# --- Select which node types to include ---
-USE_HYSTERIA2=true
-USE_VMESS=false
-USE_TROJAN=true
-USE_VLESS=false
-
 # --- Node list ---
+# [NodeID]="domain.com"
 declare -A nodes=(
   [1]="ln-sg.phicloud.shop"
   [2]="sg-1.phicloud.shop"
@@ -51,8 +46,8 @@ declare -A nodes=(
 # --- Node type ID offsets ---
 # these will append to nodeID e.g. for node 10, nodeTypeID=102
 declare -A nodeTypeID=(
-  ["hysteria2"]=2
   ["vless"]=1
+  ["hysteria2"]=2
   ["vmess"]=3
   ["trojan"]=5
 )
@@ -62,12 +57,13 @@ declare -A nodeTypeID=(
 # ========================================
 
 # --- Load API keys from /etc/V2bX/keys.conf ---
-clear
 if [[ -f /etc/V2bX/keys.conf ]]; then
   source /etc/V2bX/keys.conf
 else
   echo -e "${RED}❌ Missing /etc/V2bX/keys.conf${NC}"
+  echo "==================================================="
   echo -e "${YELLOW}Run the following to set up your keys first:${NC}"
+  echo "==================================================="
   echo "cat <<EOF > /etc/V2bX/keys.conf"
   echo "ApiHost=\"your_api_host_here\""
   echo "APIKEY=\"your_api_key_here\""
@@ -76,25 +72,60 @@ else
   echo "CLOUDFLARE_API_KEY=\"your_cloudflare_api_key_here\""
   echo "EOF"
   echo "chmod 600 /etc/V2bX/keys.conf"
+  echo "========================="
+  echo "Or use one line command"
+  echo "========================="
+  echo "echo 'ApiHost="your_api_host_here"\nAPIKEY="your_api_key_here"\nEmail="your_email_here"\nCLOUDFLARE_EMAIL="your_cloudflare_email_here"\nCLOUDFLARE_API_KEY="your_cloudflare_api_key_here"' | sed 's/\\n/\n/g' > /etc/V2bX/keys.conf && chmod 600 /etc/V2bX/keys.conf"
   exit 1
 fi
 
 # ========================================
 # V2bX CONFIG UPDATER - Main
 # ========================================
+echo -e "${BOLD}${BLUE}==============================================${NC}"
+echo -e "${BOLD}${BLUE}        🛠️  V2bX CONFIG UPDATER"
+echo -e "${BOLD}${BLUE}==============================================${NC}"
+echo ""
 
-clear
-echo -e "${CYAN}========================================"
-echo -e "        🛠️  V2bX CONFIG UPDATER"
-echo -e "========================================${NC}"
+# ========================================
+# Select which node types to include
+# ========================================
+
+echo -e "${CYAN}Select which node types you want to include:${NC}"
+echo -e "${YELLOW}Enter Y or N for each option below.${NC}\n"
+
+read -rp "Include Singbox (Hysteria2)? [Y/n]: " ans
+[[ "$ans" =~ ^[Nn]$ ]] && USE_HYSTERIA2=false || USE_HYSTERIA2=true
+
+read -rp "Include xRay (VMESS)? [Y/n]: " ans
+[[ "$ans" =~ ^[Nn]$ ]] && USE_VMESS=false || USE_VMESS=true
+
+read -rp "Include xRay (TROJAN)? [Y/n]: " ans
+[[ "$ans" =~ ^[Nn]$ ]] && USE_TROJAN=false || USE_TROJAN=true
+
+read -rp "Include xRay (VLESS)? [Y/n]: " ans
+[[ "$ans" =~ ^[Nn]$ ]] && USE_VLESS=false || USE_VLESS=true
+
+echo ""
+echo -e "${GREEN}✅ Node type selection complete.${NC}"
+echo ""
+
+# ========================================
+# Selection Summary 
+# ========================================
+echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+echo -e "${BOLD}${BLUE}        ✅  Selection Summary "
+echo -e "${BOLD}${BLUE}──────────────────────────────────────────────${NC}"
+echo ""
 echo -e "${YELLOW}This script will:${NC}"
+echo -e "  • Backup ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Replace ${CYAN}/etc/V2bX/config.json${NC}"
 echo -e "  • Use API Key: ${CYAN}${APIKEY}${NC}"
 echo -e "  • Configure active sections:${NC}"
-$USE_HYSTERIA2 && echo -e "      ▷ ${CYAN}Singbox (Hysteria2)${NC}"
-$USE_VMESS && echo -e "      ▷ ${CYAN}xRay (VMESS)${NC}"
-$USE_TROJAN && echo -e "      ▷ ${CYAN}xRay (TROJAN)${NC}"
-$USE_VLESS && echo -e "      ▷ ${CYAN}xRay (VLESS)${NC}"
+echo -e "      ▷ ${CYAN}Singbox Hysteria2:${NC} $USE_HYSTERIA2"
+echo -e "      ▷ ${CYAN}xRay    VLESS:${NC}     $USE_VLESS"
+echo -e "      ▷ ${CYAN}xRay    VMESS:${NC}     $USE_VMESS"
+echo -e "      ▷ ${CYAN}xRay    TROJAN:${NC}    $USE_TROJAN"
 echo -e "  • Automatically restart V2bX\n"
 
 # --- Display nodes ---
