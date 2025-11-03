@@ -9,7 +9,7 @@
 #   • Restore backups
 #   • Logging + color output
 # ============================================================
-
+version="v02"
 # ---------- Colors ----------
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
@@ -23,32 +23,41 @@ LOG_FILE="/root/network-diagnostics-$(date +%Y%m%d-%H%M%S).log"
 system_info() {
   clear
   echo -e "${CYAN}============================================================"
-  echo -e "        🧠 System & Network Information"
+  echo -e "        🧠 System & Network Information $version"
   echo -e "============================================================${NC}"
-
-  lsb_release -a 2>/dev/null
+  echo -e ""
+  echo -e "${GREEN}-------------------- System Information --------------------${NC}"  
+  echo -e "${CYAN}CPU:           ${NC} $(lscpu | grep 'Model name' | sed 's/Model name:\s*//')"
+  echo -e "${CYAN}Cores:         ${NC} $(nproc)"
+  echo -e "${CYAN}Memory:        ${NC} $(free -h | awk '/Mem:/{print $2}')"
+  echo -e "${CYAN}Swap:          ${NC} $(free -h | awk '/Swap:/{print $2}')"
+  echo -e ""
+  echo -e "${GREEN}---------------------- OS Information ----------------------${NC}"  
+  echo -e ""
   echo -e "${CYAN}Kernel Version:${NC} $(uname -r)"
-  echo -e "${CYAN}CPU:${NC} $(lscpu | grep 'Model name' | sed 's/Model name:\s*//')"
-  echo -e "${CYAN}Cores:${NC} $(nproc)"
-  echo -e "${CYAN}Memory:${NC} $(free -h | awk '/Mem:/{print $2}')"
-  echo -e "${CYAN}Swap:${NC} $(free -h | awk '/Swap:/{print $2}')"
-  echo
-
-  echo -e "${YELLOW}>>> Active Network Interfaces${NC}"
-  for i in $(ls /sys/class/net | grep -v lo); do
-    IP=$(ip -4 addr show $i | grep inet | awk '{print $2}' | head -n1)
-    echo -e "${CYAN}Interface:${NC} $i  ${CYAN}IP:${NC} ${IP:-N/A}"
-    ethtool $i 2>/dev/null | grep -E "Speed|Duplex" | sed "s/^/   /"
-    ip -s link show $i | awk '/RX:/{getline;print "   RX bytes: "$1", packets: "$2} /TX:/{getline;print "   TX bytes: "$1", packets: "$2}'
-    echo -e "${GREEN}------------------------------------------------------------${NC}"
-  done
-
-  echo -e "${YELLOW}>>> Default Route${NC}"
-  ip route get 8.8.8.8 | head -n1
-
-  echo -e "${YELLOW}>>> BBR Status${NC}"
+  lsb_release -a 2>/dev/null
+  echo -e ""
+  echo -e "${GREEN}---------------------- BBR Information ---------------------${NC}"  
+  echo -e ""
   sysctl net.ipv4.tcp_available_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
   sysctl net.ipv4.tcp_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
+  sysctl net.core.default_qdisc
+  echo
+
+  # echo -e "${GREEN}-------------- >>> Active Network Interfaces ---------------${NC}" 
+  # for i in $(ls /sys/class/net | grep -v lo); do
+    # IP=$(ip -4 addr show $i | grep inet | awk '{print $2}' | head -n1)
+    # echo -e ""
+	# echo -e "${CYAN}Interface:${NC} $i  ${CYAN}IP:${NC} ${IP:-N/A}"
+    # ethtool $i 2>/dev/null | grep -E "Speed|Duplex" | sed "s/^/   /"
+    # ip -s link show $i | awk '/RX:/{getline;print "   RX bytes: "$1", packets: "$2} /TX:/{getline;print "   TX bytes: "$1", packets: "$2}'
+    # echo -e ""
+	# echo -e "${GREEN}------------------------------------------------------------${NC}"
+  # done
+
+  echo -e "${GREEN}--------------------- >>> Default Route ---------------------${NC}"
+  echo -e ""
+  ip route get 8.8.8.8 | head -n1
 
   echo -e "${CYAN}============================================================${NC}"
 }
