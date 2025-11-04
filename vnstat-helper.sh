@@ -1,5 +1,5 @@
 #!/bin/bash
-# 🌐 VNSTAT HELPER — Pro Panel v2.1.3
+# 🌐 VNSTAT HELPER — Pro Panel v2
 
 VERSION="2.1.3"
 BASE_DIR="/root/vnstat-helper"
@@ -61,7 +61,6 @@ reset_vnstat(){ systemctl stop vnstat 2>/dev/null; rm -rf /var/lib/vnstat; mkdir
 
 manual_reset_and_new_baseline(){ read -rp "Reset vnStat and record new baseline? (y/n): " y; [[ "$y" =~ ^[Yy]$ ]] || return; reset_vnstat; record_baseline; }
 
-
 # ========================================
 # install/update vnstat
 # ========================================
@@ -89,7 +88,6 @@ install_vnstat() {
   fi
 }
 
-"$INSTALL_TIME_FILE"; echo -e "${GREEN}vnStat installed.${NC}"; }
 uninstall_vnstat(){ systemctl stop vnstat 2>/dev/null; apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf "$INSTALL_TIME_FILE"; echo -e "${RED}vnStat removed.${NC}"; }
 
 auto_summary_menu(){
