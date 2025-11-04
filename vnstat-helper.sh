@@ -1,6 +1,7 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
 # Version: 2.2.1
+# Author: ChatGPT
 # Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
 # ───────────────────────────────────────────────
@@ -208,14 +209,19 @@ show_dashboard() {
   clear
   load_combined_info
   UPTIME=$(fmt_uptime)
+  VNSTAT_VER=$(vnstat --version 2>/dev/null | awk '{print $2}')
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║                🌐 VNSTAT HELPER  v${VERSION}                    ║${NC}"
+  echo -e "${BLUE}║       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v${VNSTAT_VER:-N/A}          ║${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA} Interface:${NC} $IFACE             ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
-  echo -e "${MAGENTA} Uptime:${NC} $UPTIME      ${MAGENTA} Now:${NC} $CURRENT_TIME"
+  echo -e "${MAGENTA} Interface:${NC} $IFACE"
+  echo -e "${MAGENTA} Boot Time:${NC} $BOOT_TIME"
+  echo -e "${MAGENTA} Uptime:${NC} $UPTIME"
+  echo -e "${MAGENTA} Now:${NC} $CURRENT_TIME"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW}     Baseline: ${NC}$BASE_TOTAL GB     ${YELLOW}vnStat: ${NC}$VNSTAT_TOTAL GB"
-  echo -e "                     ${YELLOW}Total: ${NC} $TOTAL_SUM GB"
+  echo -e "${YELLOW} Baseline Date:${NC} ${BASE_TIME}"
+  echo -e "${YELLOW} Baseline Used:${NC} ${BASE_TOTAL} GB"
+  echo -e "${YELLOW} vnStat Recorded:${NC} ${VNSTAT_TOTAL} GB"
+  echo -e "${YELLOW} Total Combined:${NC} ${TOTAL_SUM} GB"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
@@ -251,10 +257,10 @@ ensure_deps
 while true; do
   show_dashboard
   echo ""
-  echo -e "${GREEN}[1]${NC} Daily         ${GREEN}[5]${NC} Combined Total"
-  echo -e "${GREEN}[2]${NC} Weekly        ${GREEN}[6]${NC} Live Speed"
-  echo -e "${GREEN}[3]${NC} Monthly       ${GREEN}[7]${NC} Reset vnStat"
-  echo -e "${GREEN}[4]${NC} Hourly        ${GREEN}[8]${NC} New Baseline"
+  echo -e "${GREEN}[1]${NC} Daily     ${GREEN}[5]${NC} Combined Total"
+  echo -e "${GREEN}[2]${NC} Weekly    ${GREEN}[6]${NC} Live Speed"
+  echo -e "${GREEN}[3]${NC} Monthly   ${GREEN}[7]${NC} Reset vnStat"
+  echo -e "${GREEN}[4]${NC} Hourly    ${GREEN}[8]${NC} New Baseline"
   echo -e "${GREEN}[9]${NC} Auto Summary  ${GREEN}[I]${NC} Install/Update"
   echo -e "${GREEN}[U]${NC} Uninstall     ${GREEN}[L]${NC} Logs"
   echo -e "${GREEN}[Q]${NC} Quit"
@@ -278,5 +284,5 @@ while true; do
     *) echo -e "${RED}Invalid choice.${NC}" ;;
   esac
   echo ""
-  read -rp "Press Enter to continue..."
+  read -n 1 -s -r -p "Press any key to continue..."
 done
