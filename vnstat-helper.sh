@@ -1,7 +1,6 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
 # Version: 2.2.2
-# Author: ChatGPT
 # Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
 # ───────────────────────────────────────────────
