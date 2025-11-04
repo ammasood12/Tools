@@ -214,8 +214,7 @@ show_dashboard() {
   echo -e "${MAGENTA} Interface:${NC} $IFACE    ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
   echo -e "${MAGENTA} Uptime:${NC} $UPTIME      ${MAGENTA} Now:${NC} $CURRENT_TIME"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW} Baseline(GB)    vnStat(GB)         Total(GB)${NC}"
-  echo -e "$BASE_TOTAL     $VNSTAT_TOTAL      $TOTAL_SUM"
+  echo -e "${YELLOW} Baseline: ${NC}$BASE_TOTAL GB ${YELLOW}vnStat: ${NC}$VNSTAT_TOTAL GB ${YELLOW}Total: ${NC} $TOTAL_SUM GB"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
