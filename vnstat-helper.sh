@@ -1,12 +1,12 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
-# Version: 2.2.0
+# Version: 2.2.1
 # Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.2.0"
+VERSION="2.2.1"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -251,10 +251,10 @@ ensure_deps
 while true; do
   show_dashboard
   echo ""
-  echo -e "${GREEN}[1]${NC} Daily     ${GREEN}[5]${NC} Combined Total"
-  echo -e "${GREEN}[2]${NC} Weekly    ${GREEN}[6]${NC} Live Speed"
-  echo -e "${GREEN}[3]${NC} Monthly   ${GREEN}[7]${NC} Reset vnStat"
-  echo -e "${GREEN}[4]${NC} Hourly    ${GREEN}[8]${NC} New Baseline"
+  echo -e "${GREEN}[1]${NC} Daily         ${GREEN}[5]${NC} Combined Total"
+  echo -e "${GREEN}[2]${NC} Weekly        ${GREEN}[6]${NC} Live Speed"
+  echo -e "${GREEN}[3]${NC} Monthly       ${GREEN}[7]${NC} Reset vnStat"
+  echo -e "${GREEN}[4]${NC} Hourly        ${GREEN}[8]${NC} New Baseline"
   echo -e "${GREEN}[9]${NC} Auto Summary  ${GREEN}[I]${NC} Install/Update"
   echo -e "${GREEN}[U]${NC} Uninstall     ${GREEN}[L]${NC} Logs"
   echo -e "${GREEN}[Q]${NC} Quit"
