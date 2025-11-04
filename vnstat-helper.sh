@@ -211,7 +211,7 @@ show_dashboard() {
   UPTIME=$(fmt_uptime)
   VNSTAT_VER=$(vnstat --version 2>/dev/null | awk '{print $2}')
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v${VNSTAT_VER:-N/A}          ║${NC}"
+  echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v${VNSTAT_VER:-N/A} ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
   echo -e "${MAGENTA} Interface:${NC} $IFACE             ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
   echo -e "${MAGENTA} Uptime:${NC} $UPTIME      ${MAGENTA} Now:${NC} $CURRENT_TIME"
