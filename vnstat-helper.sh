@@ -7,7 +7,7 @@
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.2.3"
+VERSION="2.2.4"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -69,9 +69,12 @@ record_baseline() {
 # FUNCTION: get_vnstat_total_gb
 # ───────────────────────────────────────────────
 get_vnstat_total_gb() {
-  vnstat --json -i "$IFACE" 2>/dev/null | jq -r '.interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx' |
-  awk '{sum+=$1} END{print sum/1024}' 2>/dev/null
+  local total
+  total=$(vnstat --json -i "$IFACE" 2>/dev/null | jq -r '.interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx' | awk '{s+=$1} END{print s/1024}')
+  [[ -z "$total" || "$total" == "0" ]] && total="0.00"
+  echo "$total"
 }
+
 
 # ───────────────────────────────────────────────
 # FUNCTION: show_combined_summary
@@ -252,7 +255,6 @@ ensure_deps
 
 while true; do
   show_dashboard
-  echo ""
   echo -e " ${GREEN}[1]${NC} Daily         ${GREEN}[5]${NC} Combined Total"
   echo -e " ${GREEN}[2]${NC} Weekly        ${GREEN}[6]${NC} Live Speed"
   echo -e " ${GREEN}[3]${NC} Monthly       ${GREEN}[7]${NC} Reset vnStat"
