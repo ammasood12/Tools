@@ -211,10 +211,11 @@ show_dashboard() {
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}║                🌐 VNSTAT HELPER  v${VERSION}                    ║${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA} Interface:${NC} $IFACE    ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
+  echo -e "${MAGENTA} Interface:${NC} $IFACE             ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
   echo -e "${MAGENTA} Uptime:${NC} $UPTIME      ${MAGENTA} Now:${NC} $CURRENT_TIME"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW} Baseline: ${NC}$BASE_TOTAL GB ${YELLOW}vnStat: ${NC}$VNSTAT_TOTAL GB ${YELLOW}Total: ${NC} $TOTAL_SUM GB"
+  echo -e "${YELLOW}     Baseline: ${NC}$BASE_TOTAL GB     ${YELLOW}vnStat: ${NC}$VNSTAT_TOTAL GB"
+  echo -e "                     ${YELLOW}Total: ${NC} $TOTAL_SUM GB"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
