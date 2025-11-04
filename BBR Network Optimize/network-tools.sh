@@ -9,7 +9,7 @@
 #   • Restore backups
 #   • Logging + color output
 # ============================================================
-version="v2.2"
+version="v2.2.1"
 # ---------- Colors ----------
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
@@ -25,26 +25,19 @@ system_info() {
   echo -e "${CYAN}============================================================"
   echo -e "        🌐 System & Network Information $version"
   echo -e "============================================================${NC}"
-  echo -e ""
   echo -e "${GREEN}-------------------- System Information --------------------${NC}"  
   echo -e "${CYAN}CPU:           ${NC} $(lscpu | grep 'Model name' | sed 's/Model name:\s*//')"
   echo -e "${CYAN}Cores:         ${NC} $(nproc)"
   echo -e "${CYAN}Memory:        ${NC} $(free -h | awk '/Mem:/{print $2}')"
   echo -e "${CYAN}Swap:          ${NC} $(free -h | awk '/Swap:/{print $2}')"
-  echo -e ""
   echo -e "${GREEN}---------------------- OS Information ----------------------${NC}"  
-  echo -e ""
   echo -e "${CYAN}Kernel Version:${NC} $(uname -r)"
   lsb_release -a 2>/dev/null
-  echo -e ""
   echo -e "${GREEN}--------------------- BBR Availability ---------------------${NC}"  
-  echo -e ""
   sudo modprobe tcp_bbr;
   echo "tcp_bbr" | sudo tee /etc/modules-load.d/bbr.conf;
   sysctl net.ipv4.tcp_available_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
-  echo -e ""
   echo -e "${GREEN}---------------------- BBR Information ---------------------${NC}"  
-  echo -e "" 
   sysctl net.ipv4.tcp_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
   sysctl net.core.default_qdisc
   echo
@@ -175,12 +168,12 @@ restore_settings() {
 system_info
 while true; do
   echo -e "\n${CYAN}=============================="
-  echo -e "   🧠 Network Management Menu"
+  echo -e "   🌐 Network Management Menu"
   echo -e "==============================${NC}"
-  echo -e "1️⃣  Run Network Tests"
-  echo -e "2️⃣  Apply Optimization (BBR/BBR2 + UDP/QUIC)"
-  echo -e "3️⃣  Restore Original Settings"
-  echo -e "4️⃣  Exit"
+  echo -e " 1) Run Network Tests"
+  echo -e " 2) Apply Optimization (BBR/BBR2 + UDP/QUIC)"
+  echo -e " 3) Restore Original Settings"
+  echo -e " 4) Exit"
   echo -ne "${YELLOW}Select an option [1-4]: ${NC}"
   read -r opt
   case $opt in
