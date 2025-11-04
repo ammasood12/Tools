@@ -1,7 +1,7 @@
 #!/bin/bash
-# 🌐 VNSTAT HELPER — Pro Panel v2.1.1
+# 🌐 VNSTAT HELPER — Pro Panel v2.1.2
 
-VERSION="2.1.1"
+VERSION="2.1.2"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -122,14 +122,14 @@ show_dashboard(){
   if [ "$COMPACT_MODE" = false ]; then
     printf "${MAGENTA} Interface:${NC} %-10s ${MAGENTA}       Boot Time:${NC} %-20s\n" "$IFACE" "$BOOT_TIME"
     printf "${MAGENTA} Uptime:${NC} %-20s ${MAGENTA}Now:${NC} %-20s\n" "$UPTIME" "$CURRENT_TIME"
-    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
     printf "${CYAN} Baseline Date:${NC} %-20s\n" "$BASE_TIME"
     printf "${YELLOW} %-15s %-15s %-15s\n${NC}" "Baseline(GB)" "vnStat(GB)" "Total(GB)"
 	printf " %-15s %-15s %-15s\n" "$BASE_TOTAL" "$VNSTAT_TOTAL" "$TOTAL_SUM"
-    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   else
-    printf "${YELLOW}Iface:${NC} %-6s | ${YELLOW}Up:${NC} %-15s | ${YELLOW}Total:${NC} %-10s GB\n" "$IFACE" "$UPTIME" "$TOTAL_SUM"
-    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    printf "${YELLOW}Iface:${NC} %-6s | ${YELLOW}Up:${NC} %-15s | ${YELLOW}Total:${NC} %-10s\n" "$IFACE" "$UPTIME" "$TOTAL_SUM GB"
+    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   fi
 }
 
@@ -171,7 +171,7 @@ while true; do
   echo -e "${GREEN} [5]${NC} Combined Total    ${GREEN}[u]${NC} Uninstall"
   echo -e "${GREEN} [6]${NC} Live Speed        ${GREEN}[L]${NC} Logs"
   echo -e "${GREEN} [C]${NC} Toggle Compact    ${GREEN}[Q]${NC} Quit"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   read -rp "Select: " ch; echo ""
   case "${ch^^}" in
     1) show_stats days ;;
@@ -183,8 +183,8 @@ while true; do
     7) reset_vnstat ;;
     8) manual_reset_and_new_baseline ;;
     9) auto_summary_menu ;;
-    i) install_vnstat ;;
-    u) uninstall_vnstat ;;
+    I) install_vnstat ;;
+    U) uninstall_vnstat ;;
     L) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
     C) COMPACT_MODE=$([ "$COMPACT_MODE" = false ] && echo true || echo false); echo "COMPACT=$COMPACT_MODE" >"$STATE_FILE";;
     Q) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
