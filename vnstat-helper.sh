@@ -1,7 +1,7 @@
 #!/bin/bash
-# 🌐 VNSTAT HELPER — Pro Panel v2.1.2
+# 🌐 VNSTAT HELPER — Pro Panel v2.1.3
 
-VERSION="2.1.2"
+VERSION="2.1.3"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -61,7 +61,35 @@ reset_vnstat(){ systemctl stop vnstat 2>/dev/null; rm -rf /var/lib/vnstat; mkdir
 
 manual_reset_and_new_baseline(){ read -rp "Reset vnStat and record new baseline? (y/n): " y; [[ "$y" =~ ^[Yy]$ ]] || return; reset_vnstat; record_baseline; }
 
-install_vnstat(){ apt update -qq && apt install -y vnstat jq; systemctl enable vnstat; systemctl start vnstat; date +%s >"$INSTALL_TIME_FILE"; echo -e "${GREEN}vnStat installed.${NC}"; }
+
+# ========================================
+# install/update vnstat
+# ========================================
+install_vnstat() {
+  if command -v vnstat >/dev/null 2>&1; then
+    CURRENT_VER=$(vnstat --version 2>/dev/null | awk '{print $2}')
+    echo -e "${YELLOW}vnStat is already installed (version ${CURRENT_VER}).${NC}"
+    read -rp "Do you want to update it to the latest version? (y/n): " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      echo -e "${CYAN}Updating vnStat...${NC}"
+      apt update -qq && apt install --only-upgrade -y vnstat jq
+      systemctl restart vnstat
+      date +%s >"$INSTALL_TIME_FILE"
+      echo -e "${GREEN}vnStat updated successfully to latest version.${NC}"
+    else
+      echo -e "${YELLOW}Skipped vnStat update.${NC}"
+    fi
+  else
+    echo -e "${CYAN}Installing vnStat...${NC}"
+    apt update -qq && apt install -y vnstat jq
+    systemctl enable vnstat
+    systemctl start vnstat
+    date +%s >"$INSTALL_TIME_FILE"
+    echo -e "${GREEN}vnStat installed successfully.${NC}"
+  fi
+}
+
+"$INSTALL_TIME_FILE"; echo -e "${GREEN}vnStat installed.${NC}"; }
 uninstall_vnstat(){ systemctl stop vnstat 2>/dev/null; apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf "$INSTALL_TIME_FILE"; echo -e "${RED}vnStat removed.${NC}"; }
 
 auto_summary_menu(){
@@ -167,8 +195,8 @@ while true; do
   echo -e "${GREEN} [1]${NC} Daily             ${GREEN}[7]${NC} Reset vnStat DB"
   echo -e "${GREEN} [2]${NC} Weekly            ${GREEN}[8]${NC} New Baseline"
   echo -e "${GREEN} [3]${NC} Monthly           ${GREEN}[9]${NC} Auto Summary"
-  echo -e "${GREEN} [4]${NC} Hourly            ${GREEN}[i]${NC} Install"
-  echo -e "${GREEN} [5]${NC} Combined Total    ${GREEN}[u]${NC} Uninstall"
+  echo -e "${GREEN} [4]${NC} Hourly            ${GREEN}[I]${NC} Install/Update"
+  echo -e "${GREEN} [5]${NC} Combined Total    ${GREEN}[U]${NC} Uninstall"
   echo -e "${GREEN} [6]${NC} Live Speed        ${GREEN}[L]${NC} Logs"
   echo -e "${GREEN} [C]${NC} Toggle Compact    ${GREEN}[Q]${NC} Quit"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
