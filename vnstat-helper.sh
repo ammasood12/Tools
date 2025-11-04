@@ -1,7 +1,12 @@
 #!/bin/bash
-# 🌐 VNSTAT HELPER — Pro Panel v2
+# 🌐 VNSTAT HELPER — Pro Panel
+# Version: 2.2.0
+# Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
-VERSION="2.1.3"
+# ───────────────────────────────────────────────
+# CONFIGURATION
+# ───────────────────────────────────────────────
+VERSION="2.2.0"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -11,7 +16,7 @@ CRON_FILE="/etc/cron.d/vnstat-daily"
 INSTALL_TIME_FILE="/var/lib/vnstat/install_time"
 mkdir -p "$BASE_DIR"
 
-# Detect interface
+# Detect active network interface
 IFACE=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $5; exit}')
 BOOT_TIME=$(who -b | awk '{print $3, $4}')
 CURRENT_TIME=$(date '+%Y-%m-%d %H:%M:%S')
@@ -21,49 +26,93 @@ GREEN="\033[1;32m"; YELLOW="\033[1;33m"; RED="\033[1;31m"
 CYAN="\033[1;36m"; MAGENTA="\033[1;35m"; BLUE="\033[1;34m"; NC="\033[0m"
 
 # ───────────────────────────────────────────────
-# Helpers
+# FUNCTION: bytes_to_gb
 # ───────────────────────────────────────────────
-bytes_to_gb(){ echo "scale=2; $1/1024/1024/1024" | bc; }
+bytes_to_gb() {
+  echo "scale=2; $1/1024/1024/1024" | bc
+}
 
-ensure_deps(){
-  for p in vnstat jq bc; do
-    command -v "$p" >/dev/null || { echo -e "${YELLOW}Installing missing $p...${NC}"; apt update -qq && apt install -y "$p"; }
+# ───────────────────────────────────────────────
+# FUNCTION: ensure_deps
+# ───────────────────────────────────────────────
+ensure_deps() {
+  for pkg in vnstat jq bc; do
+    if ! command -v "$pkg" &>/dev/null; then
+      echo -e "${YELLOW}Installing missing dependency: $pkg${NC}"
+      apt update -qq && apt install -y "$pkg"
+    fi
   done
 }
 
-record_baseline(){
-  echo -e "${CYAN}Collecting baseline traffic...${NC}"
+# ───────────────────────────────────────────────
+# FUNCTION: record_baseline
+# ───────────────────────────────────────────────
+record_baseline() {
+  echo -e "${CYAN}Collecting baseline traffic data...${NC}"
   read RX TX <<<$(ip -s link show "$IFACE" | awk '/RX:/{getline;rx=$1} /TX:/{getline;tx=$1} END{print rx,tx}')
-  RX_GB=$(bytes_to_gb "$RX"); TX_GB=$(bytes_to_gb "$TX"); TOTAL=$(echo "$RX_GB + $TX_GB" | bc)
-  { echo "BOOT_TIME=\"$BOOT_TIME\""; echo "BASE_RX=$RX_GB"; echo "BASE_TX=$TX_GB"; echo "BASE_TOTAL=$TOTAL"; echo "RECORDED_TIME=\"$CURRENT_TIME\""; } >"$DATA_FILE"
+  RX_GB=$(bytes_to_gb "$RX")
+  TX_GB=$(bytes_to_gb "$TX")
+  TOTAL=$(echo "$RX_GB + $TX_GB" | bc)
+  {
+    echo "BOOT_TIME=\"$BOOT_TIME\""
+    echo "BASE_RX=$RX_GB"
+    echo "BASE_TX=$TX_GB"
+    echo "BASE_TOTAL=$TOTAL"
+    echo "RECORDED_TIME=\"$CURRENT_TIME\""
+  } >"$DATA_FILE"
   chmod 600 "$DATA_FILE"
-  echo -e "${GREEN}Baseline saved: $TOTAL GB${NC}"
+  echo -e "${GREEN}Baseline recorded successfully: ${YELLOW}${TOTAL} GB${NC}"
 }
 
-get_vnstat_total_gb(){
+# ───────────────────────────────────────────────
+# FUNCTION: get_vnstat_total_gb
+# ───────────────────────────────────────────────
+get_vnstat_total_gb() {
   vnstat --json -i "$IFACE" 2>/dev/null | jq -r '.interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx' |
-  awk '{s+=$1} END{print s/1024}' 2>/dev/null
+  awk '{sum+=$1} END{print sum/1024}' 2>/dev/null
 }
 
-show_combined_summary(){
+# ───────────────────────────────────────────────
+# FUNCTION: show_combined_summary
+# ───────────────────────────────────────────────
+show_combined_summary() {
   source "$DATA_FILE"
   VNSTAT_TOTAL=$(get_vnstat_total_gb)
   COMBINED=$(echo "$BASE_TOTAL + $VNSTAT_TOTAL" | bc)
-  echo -e "${CYAN}──────────────────────────────${NC}"
-  printf "${YELLOW}%-15s %-15s %-15s\n${NC}" "Baseline(GB)" "vnStat(GB)" "Total(GB)"
-  echo -e "${CYAN}──────────────────────────────${NC}"
-  printf "%-15s %-15s %-15s\n" "$BASE_TOTAL" "$VNSTAT_TOTAL" "$COMBINED"
-  echo -e "${CYAN}──────────────────────────────${NC}"
+  echo -e "${CYAN}──────────────────────────────────────${NC}"
+  echo -e "${YELLOW}Baseline(GB)   vnStat(GB)     Total(GB)${NC}"
+  echo -e "${CYAN}──────────────────────────────────────${NC}"
+  echo -e "$BASE_TOTAL          $VNSTAT_TOTAL          $COMBINED"
+  echo -e "${CYAN}──────────────────────────────────────${NC}"
   echo "$(date '+%F %T') iface=$IFACE base=$BASE_TOTAL vnstat=$VNSTAT_TOTAL total=$COMBINED" >>"$LOG_FILE"
 }
 
-reset_vnstat(){ systemctl stop vnstat 2>/dev/null; rm -rf /var/lib/vnstat; mkdir -p /var/lib/vnstat; chown vnstat:vnstat /var/lib/vnstat; systemctl start vnstat 2>/dev/null; echo -e "${GREEN}vnStat reset.${NC}"; }
+# ───────────────────────────────────────────────
+# FUNCTION: reset_vnstat
+# ───────────────────────────────────────────────
+reset_vnstat() {
+  echo -e "${CYAN}Resetting vnStat database...${NC}"
+  systemctl stop vnstat 2>/dev/null
+  rm -rf /var/lib/vnstat
+  mkdir -p /var/lib/vnstat
+  chown vnstat:vnstat /var/lib/vnstat
+  systemctl start vnstat 2>/dev/null
+  echo -e "${GREEN}vnStat reset completed.${NC}"
+}
 
-manual_reset_and_new_baseline(){ read -rp "Reset vnStat and record new baseline? (y/n): " y; [[ "$y" =~ ^[Yy]$ ]] || return; reset_vnstat; record_baseline; }
+# ───────────────────────────────────────────────
+# FUNCTION: manual_reset_and_new_baseline
+# ───────────────────────────────────────────────
+manual_reset_and_new_baseline() {
+  read -rp "Reset vnStat and record new baseline? (y/n): " ans
+  [[ "$ans" =~ ^[Yy]$ ]] || return
+  reset_vnstat
+  record_baseline
+}
 
-# ========================================
-# install/update vnstat
-# ========================================
+# ───────────────────────────────────────────────
+# FUNCTION: install_vnstat (Install/Update)
+# ───────────────────────────────────────────────
 install_vnstat() {
   if command -v vnstat >/dev/null 2>&1; then
     CURRENT_VER=$(vnstat --version 2>/dev/null | awk '{print $2}')
@@ -74,7 +123,7 @@ install_vnstat() {
       apt update -qq && apt install --only-upgrade -y vnstat jq
       systemctl restart vnstat
       date +%s >"$INSTALL_TIME_FILE"
-      echo -e "${GREEN}vnStat updated successfully to latest version.${NC}"
+      echo -e "${GREEN}vnStat updated successfully.${NC}"
     else
       echo -e "${YELLOW}Skipped vnStat update.${NC}"
     fi
@@ -88,9 +137,21 @@ install_vnstat() {
   fi
 }
 
-uninstall_vnstat(){ systemctl stop vnstat 2>/dev/null; apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf "$INSTALL_TIME_FILE"; echo -e "${RED}vnStat removed.${NC}"; }
+# ───────────────────────────────────────────────
+# FUNCTION: uninstall_vnstat
+# ───────────────────────────────────────────────
+uninstall_vnstat() {
+  echo -e "${RED}Uninstalling vnStat...${NC}"
+  systemctl stop vnstat 2>/dev/null
+  apt purge -y vnstat
+  rm -rf /var/lib/vnstat /etc/vnstat.conf "$INSTALL_TIME_FILE"
+  echo -e "${GREEN}vnStat removed successfully.${NC}"
+}
 
-auto_summary_menu(){
+# ───────────────────────────────────────────────
+# FUNCTION: auto_summary_menu
+# ───────────────────────────────────────────────
+auto_summary_menu() {
   echo -e "${CYAN}Auto Summary Scheduler${NC}"
   echo "1) Hourly  2) Daily  3) Weekly  4) Monthly  5) Disable"
   read -rp "Choose: " x
@@ -104,8 +165,11 @@ auto_summary_menu(){
   echo -e "${GREEN}Schedule updated.${NC}"
 }
 
-live_speed(){
-  echo -e "${CYAN}Ctrl+C to stop live speed monitor...${NC}"
+# ───────────────────────────────────────────────
+# FUNCTION: live_speed
+# ───────────────────────────────────────────────
+live_speed() {
+  echo -e "${CYAN}Press Ctrl+C to stop live speed monitor${NC}"
   OLD_RX=$(< /sys/class/net/$IFACE/statistics/rx_bytes)
   OLD_TX=$(< /sys/class/net/$IFACE/statistics/tx_bytes)
   while true; do
@@ -114,15 +178,15 @@ live_speed(){
     NEW_TX=$(< /sys/class/net/$IFACE/statistics/tx_bytes)
     RX=$(echo "scale=2; ($NEW_RX-$OLD_RX)*8/1024/1024" | bc)
     TX=$(echo "scale=2; ($NEW_TX-$OLD_TX)*8/1024/1024" | bc)
-    printf "${GREEN}RX↓ %8.2f Mbps${NC}   ${YELLOW}TX↑ %8.2f Mbps${NC}\r" "$RX" "$TX"
+    echo -ne "${GREEN}RX↓ ${RX} Mbps${NC}   ${YELLOW}TX↑ ${TX} Mbps${NC}\r"
     OLD_RX=$NEW_RX; OLD_TX=$NEW_TX
   done
 }
 
 # ───────────────────────────────────────────────
-# Dashboard helpers
+# FUNCTION: load_combined_info
 # ───────────────────────────────────────────────
-load_combined_info(){
+load_combined_info() {
   [ ! -f "$DATA_FILE" ] && BASE_TOTAL=0 BASE_TIME="N/A" VNSTAT_TOTAL=0 TOTAL_SUM=0 && return
   source "$DATA_FILE"
   BASE_TIME=$(grep RECORDED_TIME "$DATA_FILE" | cut -d'"' -f2)
@@ -130,41 +194,40 @@ load_combined_info(){
   TOTAL_SUM=$(echo "$BASE_TOTAL + $VNSTAT_TOTAL" | bc)
 }
 
-fmt_uptime(){
-  local U=$(uptime -p)
-  echo "$U" | sed -E 's/up //' | awk '{for(i=1;i<=NF;i++){gsub("days?","d",$i);gsub("hours?","h",$i);gsub("minutes?","m",$i);printf "%s ",$i}}' | sed 's/ $//'
+# ───────────────────────────────────────────────
+# FUNCTION: fmt_uptime
+# ───────────────────────────────────────────────
+fmt_uptime() {
+  uptime -p | sed -E 's/up //' | awk '{gsub("days?","d");gsub("hours?","h");gsub("minutes?","m");printf "%s ",$0}' | sed 's/ $//'
 }
 
-COMPACT_MODE=$(grep -E '^COMPACT=' "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
-[ -z "$COMPACT_MODE" ] && COMPACT_MODE=false
-
-show_dashboard(){
+# ───────────────────────────────────────────────
+# FUNCTION: show_dashboard
+# ───────────────────────────────────────────────
+show_dashboard() {
   clear
   load_combined_info
   UPTIME=$(fmt_uptime)
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║                 VNSTAT HELPER  v${VERSION}                  ║${NC}"
+  echo -e "${BLUE}║                🌐 VNSTAT HELPER  v${VERSION}                    ║${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  if [ "$COMPACT_MODE" = false ]; then
-    printf "${MAGENTA} Interface:${NC} %-10s ${MAGENTA}       Boot Time:${NC} %-20s\n" "$IFACE" "$BOOT_TIME"
-    printf "${MAGENTA} Uptime:${NC} %-20s ${MAGENTA}Now:${NC} %-20s\n" "$UPTIME" "$CURRENT_TIME"
-    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-    printf "${CYAN} Baseline Date:${NC} %-20s\n" "$BASE_TIME"
-    printf "${YELLOW} %-15s %-15s %-15s\n${NC}" "Baseline(GB)" "vnStat(GB)" "Total(GB)"
-	printf " %-15s %-15s %-15s\n" "$BASE_TOTAL" "$VNSTAT_TOTAL" "$TOTAL_SUM"
-    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  else
-    printf "${YELLOW}Iface:${NC} %-6s | ${YELLOW}Up:${NC} %-15s | ${YELLOW}Total:${NC} %-10s\n" "$IFACE" "$UPTIME" "$TOTAL_SUM GB"
-    echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  fi
+  echo -e "${MAGENTA} Interface:${NC} $IFACE"
+  echo -e "${MAGENTA} Boot Time:${NC} $BOOT_TIME"
+  echo -e "${MAGENTA} Uptime:${NC} $UPTIME"
+  echo -e "${MAGENTA} Now:${NC} $CURRENT_TIME"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW} Baseline Date:${NC} ${BASE_TIME}"
+  echo -e "${YELLOW} Baseline Used:${NC} ${BASE_TOTAL} GB"
+  echo -e "${YELLOW} vnStat Recorded:${NC} ${VNSTAT_TOTAL} GB"
+  echo -e "${YELLOW} Total Combined:${NC} ${TOTAL_SUM} GB"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
-
 # ───────────────────────────────────────────────
-# vnStat version-aware wrapper
+# FUNCTION: show_stats (vnStat version-aware)
 # ───────────────────────────────────────────────
 VNVER=$(vnstat --version 2>/dev/null | awk '{print $2}' | cut -d. -f1)
-show_stats(){
+show_stats() {
   local mode="$1"
   if [ "$VNVER" -ge 2 ]; then
     case $mode in
@@ -186,19 +249,22 @@ show_stats(){
 # ───────────────────────────────────────────────
 # MAIN MENU
 # ───────────────────────────────────────────────
-ensure_deps; [ ! -f "$DATA_FILE" ] && record_baseline
+ensure_deps
+[ ! -f "$DATA_FILE" ] && record_baseline
 
 while true; do
   show_dashboard
-  echo -e "${GREEN} [1]${NC} Daily             ${GREEN}[7]${NC} Reset vnStat DB"
-  echo -e "${GREEN} [2]${NC} Weekly            ${GREEN}[8]${NC} New Baseline"
-  echo -e "${GREEN} [3]${NC} Monthly           ${GREEN}[9]${NC} Auto Summary"
-  echo -e "${GREEN} [4]${NC} Hourly            ${GREEN}[I]${NC} Install/Update"
-  echo -e "${GREEN} [5]${NC} Combined Total    ${GREEN}[U]${NC} Uninstall"
-  echo -e "${GREEN} [6]${NC} Live Speed        ${GREEN}[L]${NC} Logs"
-  echo -e "${GREEN} [C]${NC} Toggle Compact    ${GREEN}[Q]${NC} Quit"
-  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  read -rp "Select: " ch; echo ""
+  echo ""
+  echo -e "${GREEN}[1]${NC} Daily     ${GREEN}[5]${NC} Combined Total"
+  echo -e "${GREEN}[2]${NC} Weekly    ${GREEN}[6]${NC} Live Speed"
+  echo -e "${GREEN}[3]${NC} Monthly   ${GREEN}[7]${NC} Reset vnStat"
+  echo -e "${GREEN}[4]${NC} Hourly    ${GREEN}[8]${NC} New Baseline"
+  echo -e "${GREEN}[9]${NC} Auto Summary  ${GREEN}[I]${NC} Install/Update"
+  echo -e "${GREEN}[U]${NC} Uninstall     ${GREEN}[L]${NC} Logs"
+  echo -e "${GREEN}[Q]${NC} Quit"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  read -rp "Select: " ch
+  echo ""
   case "${ch^^}" in
     1) show_stats days ;;
     2) show_stats weeks ;;
@@ -212,9 +278,9 @@ while true; do
     I) install_vnstat ;;
     U) uninstall_vnstat ;;
     L) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
-    C) COMPACT_MODE=$([ "$COMPACT_MODE" = false ] && echo true || echo false); echo "COMPACT=$COMPACT_MODE" >"$STATE_FILE";;
     Q) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
     *) echo -e "${RED}Invalid choice.${NC}" ;;
   esac
-  echo ""; read -rp "Press Enter..."
+  echo ""
+  read -rp "Press Enter to continue..."
 done
