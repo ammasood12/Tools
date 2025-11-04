@@ -1,12 +1,13 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
-# Version: 2.2.2
+# Version: 2.2.1
+# Author: ChatGPT
 # Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.2.2"
+VERSION="2.2.1"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -212,15 +213,11 @@ show_dashboard() {
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}║       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v${VNSTAT_VER:-N/A}          ║${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA} Interface:${NC} $IFACE"
-  echo -e "${MAGENTA} Boot Time:${NC} $BOOT_TIME"
-  echo -e "${MAGENTA} Uptime:${NC} $UPTIME"
-  echo -e "${MAGENTA} Now:${NC} $CURRENT_TIME"
+  echo -e "${MAGENTA} Interface:${NC} $IFACE             ${MAGENTA} Boot Time:${NC} $BOOT_TIME"
+  echo -e "${MAGENTA} Uptime:${NC} $UPTIME      ${MAGENTA} Now:${NC} $CURRENT_TIME"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW} Baseline Date:${NC} ${BASE_TIME}"
-  echo -e "${YELLOW} Baseline Used:${NC} ${BASE_TOTAL} GB"
-  echo -e "${YELLOW} vnStat Recorded:${NC} ${VNSTAT_TOTAL} GB"
-  echo -e "${YELLOW} Total Combined:${NC} ${TOTAL_SUM} GB"
+  echo -e "${YELLOW}     Baseline: ${NC}$BASE_TOTAL GB     ${YELLOW}vnStat: ${NC}$VNSTAT_TOTAL GB"
+  echo -e "                     ${YELLOW}Total: ${NC} $TOTAL_SUM GB"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
