@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# 🧠  Network Diagnostic & Optimization Tool for Ubuntu/Debian
+# 🌐  Network Diagnostic & Optimization Tool for Ubuntu/Debian
 # ============================================================
 # Features:
 #   • Auto system info display
@@ -9,7 +9,7 @@
 #   • Restore backups
 #   • Logging + color output
 # ============================================================
-version="v02"
+version="v2.2"
 # ---------- Colors ----------
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
@@ -23,7 +23,7 @@ LOG_FILE="/root/network-diagnostics-$(date +%Y%m%d-%H%M%S).log"
 system_info() {
   clear
   echo -e "${CYAN}============================================================"
-  echo -e "        🧠 System & Network Information $version"
+  echo -e "        🌐 System & Network Information $version"
   echo -e "============================================================${NC}"
   echo -e ""
   echo -e "${GREEN}-------------------- System Information --------------------${NC}"  
@@ -37,9 +37,14 @@ system_info() {
   echo -e "${CYAN}Kernel Version:${NC} $(uname -r)"
   lsb_release -a 2>/dev/null
   echo -e ""
-  echo -e "${GREEN}---------------------- BBR Information ---------------------${NC}"  
+  echo -e "${GREEN}--------------------- BBR Availability ---------------------${NC}"  
   echo -e ""
+  sudo modprobe tcp_bbr;
+  echo "tcp_bbr" | sudo tee /etc/modules-load.d/bbr.conf;
   sysctl net.ipv4.tcp_available_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
+  echo -e ""
+  echo -e "${GREEN}---------------------- BBR Information ---------------------${NC}"  
+  echo -e "" 
   sysctl net.ipv4.tcp_congestion_control | sed -E "s/(bbr2?)/\x1b[1;32m\1\x1b[0m/g"
   sysctl net.core.default_qdisc
   echo
