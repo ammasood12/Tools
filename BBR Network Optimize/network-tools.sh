@@ -9,7 +9,7 @@
 #   • Restore backups
 #   • Logging + color output
 # ============================================================
-version="v2.2.1"
+version="v2.3"
 # ---------- Colors ----------
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
@@ -112,9 +112,11 @@ apply_optimization() {
 # Updated: $(date +%Y%m%d-%H%M%S)
 # ============================================================
 
+# --- Core network optimization ---
 net.core.default_qdisc = fq_codel
-net.ipv4.tcp_congestion_control = ${BBR_MODE}
-net.ipv4.ip_forward = 1
+net.ipv4.tcp_congestion_control = bbr
+
+# --- Connection stability ---
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_tw_reuse = 1
 net.ipv4.tcp_fin_timeout = 15
@@ -122,23 +124,42 @@ net.ipv4.tcp_slow_start_after_idle = 0
 net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 30
 net.ipv4.tcp_keepalive_probes = 5
+net.ipv4.tcp_mtu_probing = 1
+
+# --- Performance tuning ---
 net.core.somaxconn = 4096
 net.core.netdev_max_backlog = 16384
 net.ipv4.tcp_max_syn_backlog = 8192
+
+# --- TCP buffers ---
 net.core.rmem_max = 8388608
 net.core.wmem_max = 8388608
 net.ipv4.tcp_rmem = 4096 87380 8388608
 net.ipv4.tcp_wmem = 4096 65536 8388608
+
+# --- UDP / QUIC performance enhancement ---
 net.core.rmem_default = 262144
 net.core.wmem_default = 262144
 net.ipv4.udp_mem = 3145728 4194304 8388608
 net.ipv4.udp_rmem_min = 32768
 net.ipv4.udp_wmem_min = 32768
+
+# --- Port range ---
 net.ipv4.ip_local_port_range = 10240 65535
+
+# --- Security & stability ---
 net.ipv4.tcp_syncookies = 1
+net.ipv4.ip_forward = 1
+
+# --- File descriptor limits ---
 fs.file-max = 1000000
+
+# --- Routing reliability (multi-interface safe) ---
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
+
+# ============================================================
+# End of V2bX optimization block
 # ============================================================
 EOF
 
