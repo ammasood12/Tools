@@ -42,16 +42,19 @@ get_monthly_total() {
 }
 
 # ───────────────────────────────────────────────
-# BASELINE MANAGEMENT (Enhanced)
+# BASELINE MANAGEMENT (Rounded Precision)
 # ───────────────────────────────────────────────
 BASELINE_LOG="$BASE_DIR/baseline.log"
+
+round2() { printf "%.2f" "$1"; }
 
 record_baseline_auto() {
   local iface=$(detect_iface)
   read RX TX <<<$(ip -s link show "$iface" | awk '/RX:/{getline;rx=$1} /TX:/{getline;tx=$1} END{print rx,tx}')
-  RX_GB=$(echo "scale=2; $RX/1024/1024/1024" | bc)
-  TX_GB=$(echo "scale=2; $TX/1024/1024/1024" | bc)
+  RX_GB=$(echo "scale=6; $RX/1024/1024/1024" | bc)
+  TX_GB=$(echo "scale=6; $TX/1024/1024/1024" | bc)
   TOTAL=$(echo "$RX_GB + $TX_GB" | bc)
+  TOTAL=$(round2 "$TOTAL")
   TIME=$(date '+%Y-%m-%d %H:%M')
   {
     echo "BASE_TOTAL=$TOTAL"
@@ -64,13 +67,14 @@ record_baseline_auto() {
 record_baseline_manual() {
   read -rp "Enter manual baseline value (in GB): " input
   [[ -z "$input" ]] && echo -e "${RED}No value entered.${NC}" && return
+  TOTAL=$(round2 "$input")
   TIME=$(date '+%Y-%m-%d %H:%M')
   {
-    echo "BASE_TOTAL=$input"
+    echo "BASE_TOTAL=$TOTAL"
     echo "RECORDED_TIME=\"$TIME\""
   } > "$DATA_FILE"
-  echo "$TIME | Manual | $input GB" >> "$BASELINE_LOG"
-  echo -e "${GREEN}Manual baseline set to ${YELLOW}${input} GB${NC}"
+  echo "$TIME | Manual | $TOTAL GB" >> "$BASELINE_LOG"
+  echo -e "${GREEN}Manual baseline set to ${YELLOW}${TOTAL} GB${NC}"
 }
 
 select_existing_baseline() {
@@ -87,10 +91,10 @@ select_existing_baseline() {
   value=$(echo "$line" | awk '{print $(NF-1)}')
   time=$(echo "$line" | awk '{print $1" "$2}')
   {
-    echo "BASE_TOTAL=$value"
+    echo "BASE_TOTAL=$(round2 "$value")"
     echo "RECORDED_TIME=\"$time\""
   } > "$DATA_FILE"
-  echo -e "${GREEN}Active baseline switched to ${YELLOW}${value} GB${NC} (Recorded: $time)"
+  echo -e "${GREEN}Active baseline switched to ${YELLOW}$(round2 "$value") GB${NC} (Recorded: $time)"
 }
 
 modify_baseline_menu() {
@@ -117,22 +121,22 @@ modify_baseline_menu() {
 }
 
 # ───────────────────────────────────────────────
-# VNSTAT MONTHLY TOTAL HELPER
+# VNSTAT MONTHLY TOTAL (Rounded)
 # ───────────────────────────────────────────────
 get_monthly_total() {
   local iface=$(detect_iface)
   vnstat --oneline | while IFS=';' read -r id dev _ _ _ _ _ month_rx month_tx month_total _; do
     [[ "$dev" == "$iface" ]] && {
       total_gib=$(echo "$month_total" | awk '{print $1}')
-      total_gb=$(echo "scale=2; $total_gib*1.07374" | bc)
-      echo "$total_gb"
+      total_gb=$(echo "scale=6; $total_gib*1.07374" | bc)
+      echo "$(round2 "$total_gb")"
       return
     }
   done
 }
 
 # ───────────────────────────────────────────────
-# DASHBOARD (Enhanced Display)
+# DASHBOARD (Rounded Values)
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
@@ -144,19 +148,23 @@ show_dashboard() {
   fi
 
   VNSTAT_TOTAL=$(get_monthly_total)
-  TOTAL_SUM=$(echo "$BASE_TOTAL + ${VNSTAT_TOTAL:-0}" | bc)
+  VNSTAT_TOTAL=$(round2 "${VNSTAT_TOTAL:-0}")
+  BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $VNSTAT_TOTAL" | bc)
+  TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')       ${MAGENTA} Interface:${NC} $(detect_iface)"
-  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')       ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
+  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"  
   echo -e "${YELLOW} Baseline:${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
-  echo -e "${YELLOW}   vnStat:${NC}   ${VNSTAT_TOTAL:-0.00} GB       ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e "${YELLOW}    Total:${NC}       ${RED}${TOTAL_SUM} GB${NC}"
+  echo -e "${YELLOW} vnStat:${NC}   ${VNSTAT_TOTAL} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  echo -e "${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
+
 
 # ───────────────────────────────────────────────
 # MAIN MENU
