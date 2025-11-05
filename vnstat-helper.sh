@@ -175,7 +175,23 @@ auto_summary_menu() {
 }
 
 # ───────────────────────────────────────────────
-# DASHBOARD
+# VIEW AUTO SUMMARY LOG
+# ───────────────────────────────────────────────
+view_auto_summary_log() {
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW} Auto Summary Log — $DAILY_LOG ${NC}"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  if [ -s "$DAILY_LOG" ]; then
+    tail -n 30 "$DAILY_LOG" | awk '{print NR")", $0}'
+  else
+    echo -e "${RED}No auto summary logs found yet.${NC}"
+  fi
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+}
+
+
+# ───────────────────────────────────────────────
+# DASHBOARD (with Data-Ready Check + Summary Log Option)
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
@@ -204,7 +220,10 @@ show_dashboard() {
   fi
   echo -e "${RED} Total (of total):${NC}   ${RED}${TOTAL_SUM} GB${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e " ${GREEN}[0]${NC} View Auto Summary Log"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
+
 
 # ───────────────────────────────────────────────
 # MAIN MENU
