@@ -241,6 +241,7 @@ while true; do
   read -rp "Select: " ch
   echo ""
   case "${ch^^}" in
+    0) view_auto_summary_log ;;
     1) vnstat --days -i $(detect_iface) ;;
     2) vnstat --weeks -i $(detect_iface) ;;
     3) vnstat --months -i $(detect_iface) ;;
