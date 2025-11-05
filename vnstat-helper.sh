@@ -332,8 +332,8 @@ while true; do
   show_dashboard
   echo -e " ${GREEN}[1]${NC} Daily Stats             ${GREEN}[5]${NC} Baseline Options"
   echo -e " ${GREEN}[2]${NC} Monthly Stats           ${GREEN}[6]${NC} vnStat Functions"
-  echo -e " ${GREEN}[3]${NC} View Traffic Log        ${GREEN}[7]${NC} Traffic Options"
-  echo -e " ${GREEN}[4]${NC} View Logs               ${GREEN}[8]${NC} System Information"
+  echo -e " ${GREEN}[3]${NC} Traffic Log             ${GREEN}[7]${NC} Traffic Options"
+  echo -e " ${GREEN}[4]${NC} Logs                    ${GREEN}[8]${NC} System Information"
   echo -e " ${GREEN}[0]${NC} Quit"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   read -rp "Select: " ch
