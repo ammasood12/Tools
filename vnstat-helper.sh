@@ -1,7 +1,6 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
 # Version: 2.8.0
-# Author: ChatGPT
 
 set -euo pipefail
 
