@@ -1,13 +1,14 @@
-# !/bin/bash 
+# !/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
 # Version: 2.8.0
+# Author: ChatGPT
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.0"
+VERSION="2.8.1"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -93,6 +94,41 @@ get_vnstat_data() {
   done
   total_sum=$(echo "$total_rx + $total_tx" | bc)
   echo "$(round2 "$total_rx") $(round2 "$total_tx") $(round2 "$total_sum")"
+}
+
+# ───────────────────────────────────────────────
+# VNSTAT FUNCTIONS MENU
+# ───────────────────────────────────────────────
+vnstat_functions_menu() {
+  local iface=$(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' | head -n1)
+  while true; do
+    clear
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}             ⚙️ vnStat Utilities${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
+    echo -e " ${GREEN}[1]${NC} Daily Stats"
+    echo -e " ${GREEN}[2]${NC} Monthly Stats"
+    echo -e " ${GREEN}[3]${NC} Yearly Stats"
+    echo -e " ${GREEN}[4]${NC} Top Days"
+    echo -e " ${GREEN}[5]${NC} Reset Database"
+    echo -e " ${GREEN}[6]${NC} Install / Update vnStat"
+    echo -e " ${GREEN}[7]${NC} Uninstall vnStat"
+    echo -e " ${GREEN}[Q]${NC} Return"
+    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    read -rp "Select: " f
+    case "${f^^}" in
+      1) vnstat --days -i "$iface";;
+      2) vnstat --months -i "$iface";;
+      3) vnstat --years -i "$iface";;
+      4) vnstat --top -i "$iface";;
+      5) systemctl stop vnstat; rm -rf /var/lib/vnstat; systemctl start vnstat; echo -e "${GREEN}Database reset.${NC}";;
+      6) apt update -qq && apt install -y vnstat jq bc; systemctl enable vnstat; systemctl start vnstat; echo -e "${GREEN}vnStat installed/updated.${NC}";;
+      7) apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf; echo -e "${GREEN}vnStat removed.${NC}";;
+      Q) return;;
+      *) echo -e "${RED}Invalid option.${NC}";;
+    esac
+    read -n 1 -s -r -p "Press any key to continue..."
+  done
 }
 
 # ───────────────────────────────────────────────
