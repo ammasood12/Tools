@@ -149,16 +149,14 @@ show_dashboard() {
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
-  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')       ${MAGENTA} Interface:${NC} $(detect_iface)"
+  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')       ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"  
   echo -e "${YELLOW} Baseline:${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
-  echo -e "${YELLOW} vnStat:${NC}   ${VNSTAT_TOTAL:-0.00} GB        ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e "${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}"
+  echo -e "${YELLOW}   vnStat:${NC}   ${VNSTAT_TOTAL:-0.00} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  echo -e "${YELLOW}    Total:${NC}       ${RED}${TOTAL_SUM} GB${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
-
-
 
 # ───────────────────────────────────────────────
 # MAIN MENU
