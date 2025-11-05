@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.1"
+VERSION="2.8.2"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -112,7 +112,7 @@ vnstat_functions_menu() {
     echo -e " ${GREEN}[5]${NC} Reset Database"
     echo -e " ${GREEN}[6]${NC} Install / Update vnStat"
     echo -e " ${GREEN}[7]${NC} Uninstall vnStat"
-    echo -e " ${GREEN}[Q]${NC} Return"
+    echo -e " ${GREEN}[0]${NC} Return"
     echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
     read -rp "Select: " f
     case "${f^^}" in
@@ -123,7 +123,7 @@ vnstat_functions_menu() {
       5) systemctl stop vnstat; rm -rf /var/lib/vnstat; systemctl start vnstat; echo -e "${GREEN}Database reset.${NC}";;
       6) apt update -qq && apt install -y vnstat jq bc; systemctl enable vnstat; systemctl start vnstat; echo -e "${GREEN}vnStat installed/updated.${NC}";;
       7) apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf; echo -e "${GREEN}vnStat removed.${NC}";;
-      Q) return;;
+      0) return;;
       *) echo -e "${RED}Invalid option.${NC}";;
     esac
     read -n 1 -s -r -p "Press any key to continue..."
@@ -178,14 +178,14 @@ baseline_menu() {
     echo -e " ${GREEN}[1]${NC} Record Current Total as Baseline"
     echo -e " ${GREEN}[2]${NC} Enter Manual Baseline"
     echo -e " ${GREEN}[3]${NC} Select Baseline from Log"
-    echo -e " ${GREEN}[B]${NC} Back"
+    echo -e " ${GREEN}[0]${NC} Back"
     echo -e "${CYAN}────────────────────────────────────────────────────${NC}"
     read -rp "Select: " opt
     case "${opt^^}" in
       1) record_baseline_auto ;;
       2) record_baseline_manual ;;
       3) select_baseline_from_log ;;
-      B) return ;;
+      0) return ;;
       *) echo -e "${RED}Invalid option.${NC}" ;;
     esac
     read -n 1 -s -r -p "Press any key to continue..."
@@ -222,7 +222,7 @@ auto_traffic_menu() {
     3) echo "0 0 * * 0 root $SELF_PATH >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
     4) echo "0 0 1 * * root $SELF_PATH >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
     5) rm -f "$CRON_FILE";;
-    B) return ;;
+    0) return ;;
     *) echo -e "${RED}Invalid choice.${NC}" ;;
   esac
   echo -e "${GREEN}Auto Traffic updated.${NC}"
@@ -260,15 +260,15 @@ show_dashboard() {
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
   echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interfaces:${NC} $(detect_ifaces)"
-  echo -e "${MAGENTA}   Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
   printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL*1024" | bc)")" "$RECORDED_TIME"
   printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_MB")" "$(date '+%Y-%m-%d %H:%M')"
   printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_MB")" "$(date '+%Y-%m-%d %H:%M')"
   printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_MB")" "$(date '+%Y-%m-%d %H:%M')"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
 }
 
 # ───────────────────────────────────────────────
@@ -276,15 +276,11 @@ show_dashboard() {
 # ───────────────────────────────────────────────
 while true; do
   show_dashboard
-  echo -e " ${GREEN}[1]${NC} Daily Stats"
-  echo -e " ${GREEN}[2]${NC} Monthly Stats"
-  echo -e " ${GREEN}[3]${NC} View Traffic Log"
-  echo -e " ${GREEN}[4]${NC} Auto Traffic"
-  echo -e " ${GREEN}[5]${NC} Baseline Options"
-  echo -e " ${GREEN}[6]${NC} vnStat Functions"
-  echo -e " ${GREEN}[7]${NC} View Logs"
-  echo -e " ${GREEN}[Q]${NC} Quit"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e " ${GREEN}[1]${NC} Daily Stats         ${GREEN}[5]${NC} Baseline Options"
+  echo -e " ${GREEN}[2]${NC} Monthly Stats       ${GREEN}[6]${NC} vnStat Functions"
+  echo -e " ${GREEN}[3]${NC} View Traffic Log    ${GREEN}[7]${NC} View Logs"
+  echo -e " ${GREEN}[4]${NC} Auto Traffic        ${GREEN}[0]${NC} Quit"
+  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   read -rp "Select: " ch
   echo ""
   case "${ch^^}" in
@@ -295,7 +291,7 @@ while true; do
     5) baseline_menu ;;
     6) vnstat_functions_menu ;;
     7) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
-    Q) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
+    0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
     *) echo -e "${RED}Invalid option.${NC}" ;;
   esac
   echo ""
