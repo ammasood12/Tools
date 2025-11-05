@@ -9,7 +9,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.2"
+VERSION="2.4.2.2"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -46,49 +46,43 @@ format_size() {
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
-  local rx tx unit RX_GB TX_GB TOTAL ready_flag=1
+  local rx_kib tx_kib RX_GB TX_GB TOTAL ready_flag=1
 
-  read rx tx unit < <(
+  # vnStat JSON always reports KiB in 2.x
+  read rx_kib tx_kib < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
         if (.interfaces[0].traffic.months | length) > 0 then
           .interfaces[0].traffic.months[-1].rx,
-          .interfaces[0].traffic.months[-1].tx,
-          (.interfaces[0].unit // "MiB")
+          .interfaces[0].traffic.months[-1].tx
         elif .interfaces[0].traffic.total.rx then
           .interfaces[0].traffic.total.rx,
-          .interfaces[0].traffic.total.tx,
-          (.interfaces[0].unit // "MiB")
+          .interfaces[0].traffic.total.tx
         else
-          0,0,"MiB"
+          0,0
         end
       '
   )
 
-  [[ -z "$rx" || "$rx" == "null" ]] && rx=0
-  [[ -z "$tx" || "$tx" == "null" ]] && tx=0
+  [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
+  [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
 
-  case "$unit" in
-    *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
-    *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0");;
-    *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0");;
-    *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
-  esac
+  # Convert KiB → GB (decimal)
+  RX_GB=$(echo "scale=6; $rx_kib/1024/1024" | bc 2>/dev/null || echo "0")
+  TX_GB=$(echo "scale=6; $tx_kib/1024/1024" | bc 2>/dev/null || echo "0")
 
   RX_GB=$(round2 "$RX_GB")
   TX_GB=$(round2 "$TX_GB")
 
-  if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then ready_flag=0; fi
+  # Only mark as ready if vnStat has data
+  [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]] && ready_flag=0
 
   TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL=$(round2 "$TOTAL")
 
   echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
+
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
