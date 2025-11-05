@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.4"
+VERSION="2.8.5"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -57,17 +57,21 @@ detect_ifaces() {
 
 fmt_uptime() {
   local up=$(uptime -p | sed 's/^up //')
-  
-  # Convert to compact units
+
+  # Compact units
   up=$(echo "$up" | sed -E 's/weeks?/w/g; s/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g')
-  
-  # If uptime includes "w" or "d", trim minutes/seconds
+
+  # If uptime includes weeks or days, drop minutes and seconds
   if echo "$up" | grep -qE '[wd]'; then
-    up=$(echo "$up" | awk '{for(i=1;i<=NF;i++){if($i ~ /m|s/) next; printf $i" "} }' | xargs)
+    up=$(echo "$up" | sed -E 's/[0-9]+m//g; s/[0-9]+s//g')
   fi
-  
+
+  # Normalize spaces and remove trailing junk
+  up=$(echo "$up" | tr -s ' ' | sed 's/ *$//')
+
   echo "$up"
 }
+
 
 round2() { printf "%.2f" "$1"; }
 
