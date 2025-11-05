@@ -8,7 +8,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.3.1"
+VERSION="2.3.2"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -63,55 +63,43 @@ record_baseline() {
 }
 
 # ───────────────────────────────────────────────
-# VNSTAT DATA FUNCTIONS
+# FUNCTION: get_vnstat_oneline_totals
 # ───────────────────────────────────────────────
-get_vnstat_total_gb() {
-  local iface rx tx total
-  iface=$(detect_iface)
+get_vnstat_oneline_totals() {
+  vnstat --oneline | while IFS=';' read -r id iface day rx tx total rest; do
+    # Skip header or invalid lines
+    [[ -z "$iface" || "$iface" == "iface" ]] && continue
 
-  # Try months data first, fallback to total
-  rx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '
-    if .interfaces[0].traffic.months[-1].rx then
-      .interfaces[0].traffic.months[-1].rx
-    elif .interfaces[0].traffic.total.rx then
-      .interfaces[0].traffic.total.rx
-    else
-      0
-    end
-  ')
+    # Remove units (GiB, MiB, etc.) and normalize to GB
+    rx_value=$(echo "$rx" | awk '{print $1}')
+    tx_value=$(echo "$tx" | awk '{print $1}')
+    total_value=$(echo "$total" | awk '{print $1}')
+    unit=$(echo "$rx" | awk '{print $2}')
 
-  tx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '
-    if .interfaces[0].traffic.months[-1].tx then
-      .interfaces[0].traffic.months[-1].tx
-    elif .interfaces[0].traffic.total.tx then
-      .interfaces[0].traffic.total.tx
-    else
-      0
-    end
-  ')
+    # Convert GiB to GB if needed
+    if [[ "$unit" == "GiB" ]]; then
+      rx_value=$(echo "scale=2; $rx_value*1.07374" | bc)
+      tx_value=$(echo "scale=2; $tx_value*1.07374" | bc)
+      total_value=$(echo "scale=2; $total_value*1.07374" | bc)
+    fi
 
-  total=$(echo "scale=2; ($rx + $tx) / 1024" | bc)
-  echo "$total"
+    printf "%-10s RX: %-8s GB  TX: %-8s GB  Total: %-8s GB\n" "$iface" "$rx_value" "$tx_value" "$total_value"
+  done
 }
 
-
+# ───────────────────────────────────────────────
+# FUNCTION: show_combined_summary
+# (Rewritten to use the new data source)
+# ───────────────────────────────────────────────
 show_combined_summary() {
-  source "$DATA_FILE"
-  VNSTAT_TOTAL=$(get_vnstat_total_gb)
-  COMBINED=$(echo "$BASE_TOTAL + $VNSTAT_TOTAL" | bc)
-  echo -e "${CYAN}──────────────────────────────────────${NC}"
-  echo -e "${YELLOW}Baseline(GB)   vnStat(GB)     Total(GB)${NC}"
-  echo -e "${CYAN}──────────────────────────────────────${NC}"
-  echo -e "$BASE_TOTAL          $VNSTAT_TOTAL          $COMBINED"
-  echo -e "${CYAN}──────────────────────────────────────${NC}"
-  log_event "iface=$(detect_iface) base=$BASE_TOTAL vnstat=$VNSTAT_TOTAL total=$COMBINED"
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW}vnStat Network Totals (All Interfaces)${NC}"
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  get_vnstat_oneline_totals
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  log_event "Displayed vnStat totals for all interfaces"
 }
 
-show_used_since_baseline() {
-  source "$DATA_FILE"
-  USED=$(get_vnstat_total_gb)
-  echo -e "${YELLOW}Used since baseline:${NC} ${USED} GB"
-}
 
 # ───────────────────────────────────────────────
 # SYSTEM CONTROL
@@ -212,7 +200,7 @@ auto_summary_menu() {
 load_combined_info() {
   [ ! -f "$DATA_FILE" ] && BASE_TOTAL=0 VNSTAT_TOTAL=0 TOTAL_SUM=0 && return
   source "$DATA_FILE"
-  VNSTAT_TOTAL=$(get_vnstat_total_gb)
+  VNSTAT_TOTAL=$(get_vnstat_oneline_totals)
   TOTAL_SUM=$(echo "$BASE_TOTAL + $VNSTAT_TOTAL" | bc)
 }
 
