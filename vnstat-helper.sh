@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.6"
+VERSION="2.8.6.1"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -138,14 +138,17 @@ get_vnstat_data() {
     rx=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
     tx=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
     [[ -z "$rx" || -z "$tx" ]] && continue
-    RX_MB=$(echo "scale=6; $rx * 1.07374 * 1024" | bc)
-    TX_MB=$(echo "scale=6; $tx * 1.07374 * 1024" | bc)
-    total_rx=$(echo "$total_rx + $RX_MB" | bc)
-    total_tx=$(echo "$total_tx + $TX_MB" | bc)
+
+    # Convert GiB → decimal GB (multiply once by 1.07374)
+    RX_GB=$(echo "scale=6; $rx * 1.07374" | bc)
+    TX_GB=$(echo "scale=6; $tx * 1.07374" | bc)
+    total_rx=$(echo "$total_rx + $RX_GB" | bc)
+    total_tx=$(echo "$total_tx + $TX_GB" | bc)
   done
   total_sum=$(echo "$total_rx + $total_tx" | bc)
   echo "$(round2 "$total_rx") $(round2 "$total_tx") $(round2 "$total_sum")"
 }
+
 
 # ───────────────────────────────────────────────
 # VNSTAT FUNCTIONS MENU
