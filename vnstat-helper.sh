@@ -1,15 +1,15 @@
-# !/bin/bash
+#!/bin/bash
 # 🌐 VNSTAT HELPER — Billable Traffic Edition
-# Version: 2.4.2
-# Description: Accurate vnStat-based billing traffic monitor with baseline manager,
-#              auto-summary scheduler, and direct vnStat command access.
+# Version: 2.4.3
+# Description: Accurate vnStat-based billing traffic monitor with auto-unit conversion,
+#              baseline management, auto-summary scheduler, and direct vnStat command access.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.2.3"
+VERSION="2.4.3"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -36,11 +36,7 @@ log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
 format_size() {
   local val="$1"
   local unit="MB"
-
-  # Ensure numeric input
   [[ -z "$val" ]] && val=0
-
-  # Convert automatically
   if (( $(echo "$val >= 1000" | bc -l) )); then
     val=$(echo "scale=2; $val/1024" | bc)
     unit="GB"
@@ -49,19 +45,16 @@ format_size() {
     val=$(echo "scale=2; $val/1024" | bc)
     unit="TB"
   fi
-
   echo "$(round2 "$val") $unit"
 }
 
-
 # ───────────────────────────────────────────────
-# VNSTAT BILLABLE TRAFFIC HANDLER (auto-unit)
+# VNSTAT BILLABLE TRAFFIC HANDLER (KiB→MB)
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
-  local rx_kib tx_kib RX_GB TX_GB TOTAL ready_flag=1
+  local rx_kib tx_kib RX_MB TX_MB TOTAL_MB ready_flag=1
 
-  # Extract RX/TX in KiB from vnStat JSON
   read rx_kib tx_kib < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
@@ -80,24 +73,19 @@ get_monthly_traffic() {
   [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
   [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
 
-  # Convert KiB → MB (for unified converter)
+  # KiB → MB
   RX_MB=$(echo "scale=6; $rx_kib/1024" | bc 2>/dev/null || echo "0")
   TX_MB=$(echo "scale=6; $tx_kib/1024" | bc 2>/dev/null || echo "0")
 
-  # Mark readiness
   [[ "$RX_MB" == "0.00" && "$TX_MB" == "0.00" ]] && ready_flag=0
 
-  # Round to two decimals
   RX_MB=$(round2 "$RX_MB")
   TX_MB=$(round2 "$TX_MB")
   TOTAL_MB=$(echo "scale=6; $RX_MB + $TX_MB" | bc 2>/dev/null || echo "0")
   TOTAL_MB=$(round2 "$TOTAL_MB")
 
   echo "$RX_MB $TX_MB $TOTAL_MB $ready_flag"
-
 }
-
-
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
@@ -207,14 +195,10 @@ vnstat_functions_menu() {
     echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}             📊 vnStat Functions Menu${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
-    echo -e " ${GREEN}[1]${NC} Daily (vnstat --days)"
-    echo -e " ${GREEN}[2]${NC} Weekly (vnstat --weeks)"
-    echo -e " ${GREEN}[3]${NC} Monthly (vnstat --months)"
-    echo -e " ${GREEN}[4]${NC} Yearly (vnstat --years)"
-    echo -e " ${GREEN}[5]${NC} Top Days (vnstat --top)"
-    echo -e " ${GREEN}[6]${NC} Hours (vnstat --hours)"
-    echo -e " ${GREEN}[7]${NC} Hours Graph (vnstat --hoursgraph)"
-    echo -e " ${GREEN}[8]${NC} 5-min Graph (vnstat --fiveminutes)"
+    echo -e " ${GREEN}[1]${NC} Daily   ${GREEN}[5]${NC} Top Days"
+    echo -e " ${GREEN}[2]${NC} Weekly  ${GREEN}[6]${NC} Hours"
+    echo -e " ${GREEN}[3]${NC} Monthly ${GREEN}[7]${NC} Hours Graph"
+    echo -e " ${GREEN}[4]${NC} Yearly  ${GREEN}[8]${NC} 5-Minute Graph"
     echo -e " ${GREEN}[Q]${NC} Return"
     echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
     read -rp "Select: " f
@@ -242,19 +226,19 @@ show_dashboard() {
   BASE_TOTAL=0; RECORDED_TIME="N/A"
   [ -f "$DATA_FILE" ] && source "$DATA_FILE"
 
-  read RX_GB TX_GB VN_TOTAL READY < <(get_monthly_traffic)
+  read RX_MB TX_MB TOTAL_MB READY < <(get_monthly_traffic)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
-  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + ($TOTAL_MB/1024)" | bc 2>/dev/null || echo "0")
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
   echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
-  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 
-  echo -e "${YELLOW} Baseline (of total):${NC} $(format_size "$BASE_TOTAL")       (${RECORDED_TIME})"
+  echo -e "${YELLOW} Baseline (of total):${NC} $(format_size "$(echo "$BASE_TOTAL*1024" | bc)")       (${RECORDED_TIME})"
   if [[ "$READY" -eq 1 ]]; then
     echo -e "${YELLOW} vnStat (download):${NC}  $(format_size "$RX_MB")       ($(date '+%Y-%m-%d %H:%M'))"
     echo -e "${YELLOW} vnStat (upload):${NC}    $(format_size "$TX_MB")       ($(date '+%Y-%m-%d %H:%M'))"
@@ -262,7 +246,7 @@ show_dashboard() {
     echo -e "${YELLOW} vnStat (download):${NC}  ${YELLOW}Collecting data... (vnStat updating)${NC}"
     echo -e "${YELLOW} vnStat (upload):${NC}    ${YELLOW}Collecting data... (vnStat updating)${NC}"
   fi
-  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_MB")${NC}"
+  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$(echo "$TOTAL_MB" | bc)")${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   echo -e " ${GREEN}[0]${NC} View Auto Summary Log"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
