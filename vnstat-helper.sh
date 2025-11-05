@@ -8,7 +8,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.1"
+VERSION="2.4.1.1"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -37,49 +37,54 @@ get_monthly_traffic() {
   local rx tx unit RX_GB TX_GB TOTAL
   local ready_flag=1
 
-  # Pull month data + unit (auto-detect)
+  # Extract month RX/TX and detect data unit safely
   read rx tx unit < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
         if (.interfaces[0].traffic.months | length) > 0 then
           .interfaces[0].traffic.months[-1].rx,
           .interfaces[0].traffic.months[-1].tx,
-          (.interfaces[0].unit // "KiB")
+          (.interfaces[0].unit // "MiB")
+        elif .interfaces[0].traffic.total.rx then
+          .interfaces[0].traffic.total.rx,
+          .interfaces[0].traffic.total.tx,
+          (.interfaces[0].unit // "MiB")
         else
-          0,0,("KiB")
+          0,0,"MiB"
         end
       '
   )
 
-  [[ -z "$rx" || "$rx" == "null" ]] && rx=0 && ready_flag=0
-  [[ -z "$tx" || "$tx" == "null" ]] && tx=0 && ready_flag=0
+  # Default numeric values
+  [[ -z "$rx" || "$rx" == "null" ]] && rx=0
+  [[ -z "$tx" || "$tx" == "null" ]] && tx=0
 
-  # Convert to GB (decimal)
+  # Convert depending on unit type
   case "$unit" in
-    *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0") ;;
-    *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0") ;;
-    *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0") ;;
-    *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+    *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
+           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+    *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0")
+           TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0") ;;
+    *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0")
+           TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0") ;;
+    *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
+           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
   esac
 
-  case "$unit" in
-    *KiB*) TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
-    *MiB*) TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0") ;;
-    *GiB*) TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0") ;;
-    *)     TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
-  esac
+  RX_GB=$(round2 "$RX_GB")
+  TX_GB=$(round2 "$TX_GB")
 
-  RX_GB=$(round2 "$RX_GB"); TX_GB=$(round2 "$TX_GB")
-  TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
-  TOTAL=$(round2 "$TOTAL")
-
-  # If vnStat hasn’t produced values yet
+  # If both are zero, assume vnStat not ready yet
   if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then
     ready_flag=0
   fi
 
+  TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
+  TOTAL=$(round2 "$TOTAL")
+
   echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
+
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
