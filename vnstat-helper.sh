@@ -1,6 +1,6 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
-# Version: 2.3.0
+# Version: 2.3.1
 # Description: Smart vnStat control and monitoring panel for Ubuntu/Debian systems.
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.3.0"
+VERSION="2.3.1"
 BASE_DIR="/root/vnstat-helper"
 STATE_FILE="$BASE_DIR/state"
 DATA_FILE="$BASE_DIR/baseline"
@@ -66,13 +66,34 @@ record_baseline() {
 # VNSTAT DATA FUNCTIONS
 # ───────────────────────────────────────────────
 get_vnstat_total_gb() {
-  local iface=$(detect_iface)
-  local rx tx total
-  rx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '.interfaces[0].traffic.months[-1].rx // 0')
-  tx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '.interfaces[0].traffic.months[-1].tx // 0')
+  local iface rx tx total
+  iface=$(detect_iface)
+
+  # Try months data first, fallback to total
+  rx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '
+    if .interfaces[0].traffic.months[-1].rx then
+      .interfaces[0].traffic.months[-1].rx
+    elif .interfaces[0].traffic.total.rx then
+      .interfaces[0].traffic.total.rx
+    else
+      0
+    end
+  ')
+
+  tx=$(vnstat --json -i "$iface" 2>/dev/null | jq -r '
+    if .interfaces[0].traffic.months[-1].tx then
+      .interfaces[0].traffic.months[-1].tx
+    elif .interfaces[0].traffic.total.tx then
+      .interfaces[0].traffic.total.tx
+    else
+      0
+    end
+  ')
+
   total=$(echo "scale=2; ($rx + $tx) / 1024" | bc)
   echo "$total"
 }
+
 
 show_combined_summary() {
   source "$DATA_FILE"
