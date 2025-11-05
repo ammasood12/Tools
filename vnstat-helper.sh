@@ -43,17 +43,23 @@ get_monthly_traffic() {
   local iface=$(detect_iface)
   local rx_kib tx_kib RX_GB TX_GB TOTAL
 
-  # Extract current month RX/TX (KiB), use 0 if null
+  # Try to get current month (latest) from JSON; fallback to total if empty
   read rx_kib tx_kib < <(
     vnstat --json -i "$iface" 2>/dev/null |
-      jq -r '.interfaces[0].traffic.months[-1].rx // 0,
-             .interfaces[0].traffic.months[-1].tx // 0'
+      jq -r '(
+        if (.interfaces[0].traffic.months | length) > 0 then
+          .interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx
+        else
+          .interfaces[0].traffic.total.rx, .interfaces[0].traffic.total.tx
+        end
+      ) // 0'
   )
 
-  # Ensure numeric fallback
+  # Numeric sanity check
   [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
   [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
 
+  # Convert KiB → GB
   RX_GB=$(echo "scale=6; $rx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
   TX_GB=$(echo "scale=6; $tx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
 
@@ -65,6 +71,7 @@ get_monthly_traffic() {
 
   echo "$RX_GB $TX_GB $TOTAL"
 }
+
 
 
 # ───────────────────────────────────────────────
