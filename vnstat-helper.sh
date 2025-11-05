@@ -259,8 +259,10 @@ show_dashboard() {
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interfaces:${NC} $(detect_ifaces)"
-  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  printf "${MAGENTA}   %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
+    "Boot Time:" "$(who -b | awk '{print $3, $4}')" "Interfaces:" "$(detect_ifaces)"
+  printf "${MAGENTA}   %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
+    "Server Time:" "$(date '+%Y-%m-%d %H:%M:%S')" "Uptime:" "$(fmt_uptime)"
   echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
   printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
@@ -276,10 +278,10 @@ show_dashboard() {
 # ───────────────────────────────────────────────
 while true; do
   show_dashboard
-  echo -e " ${GREEN}[1]${NC} Daily Stats         ${GREEN}[5]${NC} Baseline Options"
-  echo -e " ${GREEN}[2]${NC} Monthly Stats       ${GREEN}[6]${NC} vnStat Functions"
-  echo -e " ${GREEN}[3]${NC} View Traffic Log    ${GREEN}[7]${NC} View Logs"
-  echo -e " ${GREEN}[4]${NC} Auto Traffic        ${GREEN}[0]${NC} Quit"
+  echo -e " ${GREEN}[1]${NC} Daily Stats             ${GREEN}[5]${NC} Baseline Options"
+  echo -e " ${GREEN}[2]${NC} Monthly Stats           ${GREEN}[6]${NC} vnStat Functions"
+  echo -e " ${GREEN}[3]${NC} View Traffic Log        ${GREEN}[7]${NC} Traffic Options"
+  echo -e " ${GREEN}[4]${NC} View Logs               ${GREEN}[0]${NC} Quit"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   read -rp "Select: " ch
   echo ""
@@ -287,10 +289,10 @@ while true; do
     1) vnstat --days ;;
     2) vnstat --months ;;
     3) view_traffic_log ;;
-    4) auto_traffic_menu ;;
+    4) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
     5) baseline_menu ;;
     6) vnstat_functions_menu ;;
-    7) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
+    7) auto_traffic_menu ;;
     0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
     *) echo -e "${RED}Invalid option.${NC}" ;;
   esac
