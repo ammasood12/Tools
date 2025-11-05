@@ -136,9 +136,15 @@ get_monthly_total() {
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
-  [ -f "$DATA_FILE" ] && source "$DATA_FILE" || { BASE_TOTAL=0; RECORDED_TIME="N/A"; }
+  BASE_TOTAL=0
+  RECORDED_TIME="N/A"
+
+  if [ -f "$DATA_FILE" ] && [ -s "$DATA_FILE" ]; then
+    source "$DATA_FILE"
+  fi
+
   VNSTAT_TOTAL=$(get_monthly_total)
-  TOTAL_SUM=$(echo "$BASE_TOTAL + $VNSTAT_TOTAL" | bc)
+  TOTAL_SUM=$(echo "$BASE_TOTAL + ${VNSTAT_TOTAL:-0}" | bc)
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
@@ -148,9 +154,10 @@ show_dashboard() {
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"  
   echo -e "${YELLOW} Baseline:${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
   echo -e "${YELLOW} vnStat:${NC}   ${VNSTAT_TOTAL:-0.00} GB        ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e \"${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}\"
-  echo -e \"${CYAN}────────────────────────────────────────────────────────${NC}\"
+  echo -e "${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
+
 
 
 # ───────────────────────────────────────────────
