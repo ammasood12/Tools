@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.6"
+VERSION="2.8.6.1"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -132,18 +132,36 @@ system_info() {
 # ───────────────────────────────────────────────
 get_vnstat_data() {
   local total_rx=0 total_tx=0 total_sum=0
+  local rx_val tx_val rx_unit tx_unit RX_GB TX_GB
+
   for iface in $(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan'); do
     line=$(vnstat --oneline -i "$iface" 2>/dev/null || true)
     [[ -z "$line" ]] && continue
 
-    # 9th/10th fields = monthly RX/TX (GiB)
-    rx=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
-    tx=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
-    [[ -z "$rx" || -z "$tx" ]] && continue
+    # Extract value + unit for RX/TX (fields 9/10)
+    rx_val=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
+    rx_unit=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $2}')
+    tx_val=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
+    tx_unit=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $2}')
 
-    # Convert GiB → decimal GB
-    RX_GB=$(echo "scale=6; $rx * 1.07374" | bc)
-    TX_GB=$(echo "scale=6; $tx * 1.07374" | bc)
+    [[ -z "$rx_val" || -z "$tx_val" ]] && continue
+
+    # Convert based on unit reported by vnStat
+    case "$rx_unit" in
+      KiB|kib) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
+      MiB|mib) RX_GB=$(echo "scale=6; $rx_val/1024" | bc) ;;
+      GiB|gib|G|Gi) RX_GB=$(echo "scale=6; $rx_val*1.07374" | bc) ;;
+      TiB|tib|T|Ti) RX_GB=$(echo "scale=6; $rx_val*1024*1.07374" | bc) ;;
+      *) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
+    esac
+
+    case "$tx_unit" in
+      KiB|kib) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
+      MiB|mib) TX_GB=$(echo "scale=6; $tx_val/1024" | bc) ;;
+      GiB|gib|G|Gi) TX_GB=$(echo "scale=6; $tx_val*1.07374" | bc) ;;
+      TiB|tib|T|Ti) TX_GB=$(echo "scale=6; $tx_val*1024*1.07374" | bc) ;;
+      *) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
+    esac
 
     total_rx=$(echo "$total_rx + $RX_GB" | bc)
     total_tx=$(echo "$total_tx + $TX_GB" | bc)
@@ -152,6 +170,7 @@ get_vnstat_data() {
   total_sum=$(echo "$total_rx + $total_tx" | bc)
   echo "$(round2 "$total_rx") $(round2 "$total_tx") $(round2 "$total_sum")"
 }
+
 
 
 # ───────────────────────────────────────────────
