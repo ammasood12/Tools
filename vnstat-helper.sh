@@ -1,6 +1,6 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Pro Panel
-# Version: 2.3.1 (Admin Focused)
+# Version: 2.3.2 (Admin Focused)
 # Description: Enhanced admin-focused vnStat control panel with original dashboard layout.
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.3.1"
+VERSION="2.3.2"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 LOG_FILE="$BASE_DIR/log"
@@ -125,11 +125,11 @@ while true; do
   read -rp "Select: " ch
   echo ""
   case "${ch^^}" in
-    1) vnstat --days -i $(detect_iface) | less ;;
-    2) vnstat --weeks -i $(detect_iface) | less ;;
-    3) vnstat --months -i $(detect_iface) | less ;;
-    4) vnstat --hours -i $(detect_iface) | less ;;
-    5) vnstat --top | less ;;
+    1) vnstat --days -i $(detect_iface) ;;
+    2) vnstat --weeks -i $(detect_iface) ;;
+    3) vnstat --months -i $(detect_iface) ;;
+    4) vnstat --hours -i $(detect_iface) ;;
+    5) vnstat --top ;;
     6) show_combined_summary ;;
     7) reset_vnstat ;;
     8) record_baseline ;;
