@@ -9,7 +9,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.2.2"
+VERSION="2.4.2.3"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -30,16 +30,29 @@ fmt_uptime() { uptime -p | sed -E 's/^up //' | sed -E 's/days?/d/g; s/hours?/h/g
 round2() { printf "%.2f" "$1"; }
 log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
 
-# convert GB → TB if value ≥ 1000
+# ───────────────────────────────────────────────
+# UNIVERSAL UNIT CONVERTER (MB → GB → TB)
+# ───────────────────────────────────────────────
 format_size() {
   local val="$1"
+  local unit="MB"
+
+  # Ensure numeric input
+  [[ -z "$val" ]] && val=0
+
+  # Convert automatically
   if (( $(echo "$val >= 1000" | bc -l) )); then
     val=$(echo "scale=2; $val/1024" | bc)
-    echo "$(round2 "$val") TB"
-  else
-    echo "$(round2 "$val") GB"
+    unit="GB"
   fi
+  if (( $(echo "$val >= 1000" | bc -l) )); then
+    val=$(echo "scale=2; $val/1024" | bc)
+    unit="TB"
+  fi
+
+  echo "$(round2 "$val") $unit"
 }
+
 
 # ───────────────────────────────────────────────
 # VNSTAT BILLABLE TRAFFIC HANDLER (auto-unit)
@@ -48,7 +61,7 @@ get_monthly_traffic() {
   local iface=$(detect_iface)
   local rx_kib tx_kib RX_GB TX_GB TOTAL ready_flag=1
 
-  # vnStat JSON always reports KiB in 2.x
+  # Extract RX/TX in KiB from vnStat JSON
   read rx_kib tx_kib < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
@@ -67,21 +80,23 @@ get_monthly_traffic() {
   [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
   [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
 
-  # Convert KiB → GB (decimal)
-  RX_GB=$(echo "scale=6; $rx_kib/1024/1024" | bc 2>/dev/null || echo "0")
-  TX_GB=$(echo "scale=6; $tx_kib/1024/1024" | bc 2>/dev/null || echo "0")
+  # Convert KiB → MB (for unified converter)
+  RX_MB=$(echo "scale=6; $rx_kib/1024" | bc 2>/dev/null || echo "0")
+  TX_MB=$(echo "scale=6; $tx_kib/1024" | bc 2>/dev/null || echo "0")
 
-  RX_GB=$(round2 "$RX_GB")
-  TX_GB=$(round2 "$TX_GB")
+  # Mark readiness
+  [[ "$RX_MB" == "0.00" && "$TX_MB" == "0.00" ]] && ready_flag=0
 
-  # Only mark as ready if vnStat has data
-  [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]] && ready_flag=0
+  # Round to two decimals
+  RX_MB=$(round2 "$RX_MB")
+  TX_MB=$(round2 "$TX_MB")
+  TOTAL_MB=$(echo "scale=6; $RX_MB + $TX_MB" | bc 2>/dev/null || echo "0")
+  TOTAL_MB=$(round2 "$TOTAL_MB")
 
-  TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
-  TOTAL=$(round2 "$TOTAL")
+  echo "$RX_MB $TX_MB $TOTAL_MB $ready_flag"
 
-  echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
+
 
 
 # ───────────────────────────────────────────────
@@ -241,13 +256,13 @@ show_dashboard() {
 
   echo -e "${YELLOW} Baseline (of total):${NC} $(format_size "$BASE_TOTAL")       (${RECORDED_TIME})"
   if [[ "$READY" -eq 1 ]]; then
-    echo -e "${YELLOW} vnStat (download):${NC}  $(format_size "$RX_GB")       ($(date '+%Y-%m-%d %H:%M'))"
-    echo -e "${YELLOW} vnStat (upload):${NC}    $(format_size "$TX_GB")       ($(date '+%Y-%m-%d %H:%M'))"
+    echo -e "${YELLOW} vnStat (download):${NC}  $(format_size "$RX_MB")       ($(date '+%Y-%m-%d %H:%M'))"
+    echo -e "${YELLOW} vnStat (upload):${NC}    $(format_size "$TX_MB")       ($(date '+%Y-%m-%d %H:%M'))"
   else
     echo -e "${YELLOW} vnStat (download):${NC}  ${YELLOW}Collecting data... (vnStat updating)${NC}"
     echo -e "${YELLOW} vnStat (upload):${NC}    ${YELLOW}Collecting data... (vnStat updating)${NC}"
   fi
-  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_SUM")${NC}"
+  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_MB")${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   echo -e " ${GREEN}[0]${NC} View Auto Summary Log"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
