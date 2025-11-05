@@ -1,15 +1,15 @@
 #!/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-# Version: 2.6.0
+# Version: 2.7.0
 # Description: Monitors billable traffic across all interfaces using vnStat --oneline.
-#              Includes baseline management, auto summary, and system utilities.
+#              Includes baseline management, cron scheduling, and vnStat utilities.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.6.0"
+VERSION="2.7.0"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -47,14 +47,13 @@ check_dependencies() {
     fi
   fi
 }
-
 check_dependencies
 
 # ───────────────────────────────────────────────
 # HELPERS
 # ───────────────────────────────────────────────
 detect_ifaces() {
-  ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' || true
+  ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' | paste -sd, -
 }
 fmt_uptime() { uptime -p | sed -E 's/^up //' | sed -E 's/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g'; }
 round2() { printf "%.2f" "$1"; }
@@ -83,23 +82,17 @@ format_size() {
 # ───────────────────────────────────────────────
 get_vnstat_data() {
   local total_rx=0 total_tx=0 total_sum=0
-  local ifaces=($(detect_ifaces))
-
-  for iface in "${ifaces[@]}"; do
+  for iface in $(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan'); do
     line=$(vnstat --oneline -i "$iface" 2>/dev/null || true)
     [[ -z "$line" ]] && continue
-
     rx=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
     tx=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
     [[ -z "$rx" || -z "$tx" ]] && continue
-
-    # Convert GiB → MB
     RX_MB=$(echo "scale=6; $rx * 1.07374 * 1024" | bc)
     TX_MB=$(echo "scale=6; $tx * 1.07374 * 1024" | bc)
     total_rx=$(echo "$total_rx + $RX_MB" | bc)
     total_tx=$(echo "$total_tx + $TX_MB" | bc)
   done
-
   total_sum=$(echo "$total_rx + $total_tx" | bc)
   echo "$(round2 "$total_rx") $(round2 "$total_tx") $(round2 "$total_sum")"
 }
@@ -115,7 +108,6 @@ record_baseline_auto() {
   echo "$TIME | Auto | $total GB" >> "$BASELINE_LOG"
   echo -e "${GREEN}New baseline recorded: ${YELLOW}${total} GB${NC}"
 }
-
 record_baseline_manual() {
   read -rp "Enter manual baseline value (in GB): " input
   [[ -z "$input" ]] && echo -e "${RED}No value entered.${NC}" && return
@@ -126,48 +118,73 @@ record_baseline_manual() {
   echo -e "${GREEN}Manual baseline set to ${YELLOW}${input} GB${NC}"
 }
 
-# ───────────────────────────────────────────────
-# AUTO SUMMARY (renamed & status)
-# ───────────────────────────────────────────────
-auto_summary_menu() {
-  local status="Disabled"
-  if [ -f "$CRON_FILE" ]; then
-    status=$(awk '{print $6}' "$CRON_FILE" | sed 's/--daily//' | sed 's/root//g' | xargs)
-    [[ -z "$status" ]] && status="Enabled"
-  fi
-
-  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW}Auto Traffic Summary (Current: $status)${NC}"
-  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
-  echo "1) Hourly Summary"
-  echo "2) Daily Summary"
-  echo "3) Weekly Summary"
-  echo "4) Monthly Summary"
-  echo "5) Disable Auto Summary"
-  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
-  read -rp "Choose: " x
-  case $x in
-    1) echo "0 * * * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
-    2) echo "0 0 * * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
-    3) echo "0 0 * * 0 root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
-    4) echo "0 0 1 * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
-    5) rm -f "$CRON_FILE";;
-    *) echo -e "${RED}Invalid option.${NC}"; return;;
-  esac
-  echo -e "${GREEN}Auto summary schedule updated.${NC}"
+modify_baseline_menu() {
+  while true; do
+    clear
+    echo -e "${BLUE}╔════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}         ⚙️  Modify Baseline${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════════════════╝${NC}"
+    echo -e " ${GREEN}[1]${NC} Record Current Total as Baseline"
+    echo -e " ${GREEN}[2]${NC} Enter Manual Baseline"
+    echo -e " ${GREEN}[Q]${NC} Return"
+    echo -e "${CYAN}────────────────────────────────────────────────────${NC}"
+    read -rp "Select: " opt
+    case "${opt^^}" in
+      1) record_baseline_auto ;;
+      2) record_baseline_manual ;;
+      Q) return ;;
+      *) echo -e "${RED}Invalid option.${NC}" ;;
+    esac
+    read -n 1 -s -r -p "Press any key to continue..."
+  done
 }
 
 # ───────────────────────────────────────────────
-# VIEW TRAFFIC SUMMARY LOG
+# AUTO TRAFFIC (CRON STATUS)
+# ───────────────────────────────────────────────
+auto_traffic_menu() {
+  local status="Disabled"
+  if [ -f "$CRON_FILE" ]; then
+    local entry=$(cat "$CRON_FILE")
+    case "$entry" in
+      *"0 * * * *"*) status="Hourly" ;;
+      *"0 0 * * *"*) status="Daily" ;;
+      *"0 0 * * 0"*) status="Weekly" ;;
+      *"0 0 1 * *"*) status="Monthly" ;;
+    esac
+  fi
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW}Auto Traffic (Current: ${status})${NC}"
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  echo "1) Enable Hourly"
+  echo "2) Enable Daily"
+  echo "3) Enable Weekly"
+  echo "4) Enable Monthly"
+  echo "5) Disable Auto Traffic"
+  echo -e "${CYAN}──────────────────────────────────────────────${NC}"
+  read -rp "Choose: " x
+  case $x in
+    1) echo "0 * * * * root /usr/local/bin/vnstat-helper.sh >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    2) echo "0 0 * * * root /usr/local/bin/vnstat-helper.sh >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    3) echo "0 0 * * 0 root /usr/local/bin/vnstat-helper.sh >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    4) echo "0 0 1 * * root /usr/local/bin/vnstat-helper.sh >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    5) rm -f "$CRON_FILE";;
+    *) echo -e "${RED}Invalid option.${NC}"; return;;
+  esac
+  echo -e "${GREEN}Auto Traffic updated.${NC}"
+}
+
+# ───────────────────────────────────────────────
+# VIEW TRAFFIC LOG
 # ───────────────────────────────────────────────
 view_traffic_log() {
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW} Traffic Summary Log — $DAILY_LOG ${NC}"
+  echo -e "${YELLOW} Traffic Log — $DAILY_LOG ${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   if [ -s "$DAILY_LOG" ]; then
     tail -n 30 "$DAILY_LOG" | awk '{print NR")", $0}'
   else
-    echo -e "${RED}No traffic summaries yet.${NC}"
+    echo -e "${RED}No traffic logs found.${NC}"
   fi
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
@@ -176,17 +193,17 @@ view_traffic_log() {
 # VNSTAT FUNCTIONS MENU
 # ───────────────────────────────────────────────
 vnstat_functions_menu() {
-  local iface=$(detect_ifaces | head -n1)
+  local iface=$(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' | head -n1)
   while true; do
     clear
     echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}             ⚙️ vnStat Utilities Menu${NC}"
+    echo -e "${BLUE}             ⚙️ vnStat Utilities${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
     echo -e " ${GREEN}[1]${NC} Daily Stats"
     echo -e " ${GREEN}[2]${NC} Monthly Stats"
     echo -e " ${GREEN}[3]${NC} Yearly Stats"
     echo -e " ${GREEN}[4]${NC} Top Days"
-    echo -e " ${GREEN}[5]${NC} Reset vnStat Database"
+    echo -e " ${GREEN}[5]${NC} Reset Database"
     echo -e " ${GREEN}[6]${NC} Install / Update vnStat"
     echo -e " ${GREEN}[7]${NC} Uninstall vnStat"
     echo -e " ${GREEN}[Q]${NC} Return"
@@ -223,13 +240,15 @@ show_dashboard() {
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
-  echo -e "${MAGENTA}   Interfaces:${NC} $(detect_ifaces)"
-  echo -e "${MAGENTA}   Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')   ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interfaces:${NC} $(detect_ifaces)"
+  echo -e "${MAGENTA}   Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
-  echo -e "${YELLOW} Baseline (of total):${NC} $(format_size "$(echo "$BASE_TOTAL*1024" | bc)") (${RECORDED_TIME})"
+  echo -e "${YELLOW} Baseline (before vnStat):${NC} $(format_size "$(echo "$BASE_TOTAL*1024" | bc)") (${RECORDED_TIME})"
   echo -e "${YELLOW} vnStat (download):${NC}  $(format_size "$RX_MB")"
   echo -e "${YELLOW} vnStat (upload):${NC}    $(format_size "$TX_MB")"
-  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_MB")${NC}"
+  echo -e "${RED} Total (all interfaces):${NC}   ${RED}$(format_size "$TOTAL_MB")${NC}"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e " ${GREEN}[D]${NC} Daily Stats          ${GREEN}[M]${NC} Monthly Stats"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
@@ -238,8 +257,8 @@ show_dashboard() {
 # ───────────────────────────────────────────────
 while true; do
   show_dashboard
-  echo -e " ${GREEN}[1]${NC} View Traffic Summary Log"
-  echo -e " ${GREEN}[2]${NC} Auto Traffic Summary"
+  echo -e " ${GREEN}[1]${NC} View Traffic Log"
+  echo -e " ${GREEN}[2]${NC} Auto Traffic"
   echo -e " ${GREEN}[3]${NC} Modify Baseline"
   echo -e " ${GREEN}[4]${NC} vnStat Functions"
   echo -e " ${GREEN}[5]${NC} View Logs"
@@ -248,8 +267,10 @@ while true; do
   read -rp "Select: " ch
   echo ""
   case "${ch^^}" in
+    D) vnstat --days ;;
+    M) vnstat --months ;;
     1) view_traffic_log ;;
-    2) auto_summary_menu ;;
+    2) auto_traffic_menu ;;
     3) modify_baseline_menu ;;
     4) vnstat_functions_menu ;;
     5) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
