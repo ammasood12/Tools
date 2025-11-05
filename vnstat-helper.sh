@@ -1,18 +1,21 @@
 # !/bin/bash
-# 🌐 VNSTAT HELPER — Pro Panel
-# Version: 2.3.2 (Enhanced Baseline Manager)
-# Description: Smart vnStat control and monitoring panel with advanced baseline handling.
+# 🌐 VNSTAT HELPER — Billable Traffic Edition
+# Version: 2.4.0
+# Description: vnStat control panel showing real billable (download/upload) traffic
+#              with advanced baseline management and auto-summary scheduler.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.3.2"
+VERSION="2.4.0"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
-LOG_FILE="$BASE_DIR/log"
 BASELINE_LOG="$BASE_DIR/baseline.log"
+LOG_FILE="$BASE_DIR/log"
+DAILY_LOG="$BASE_DIR/daily.log"
+CRON_FILE="/etc/cron.d/vnstat-daily"
 mkdir -p "$BASE_DIR"
 
 # Colors
@@ -23,31 +26,32 @@ CYAN="\033[1;36m"; MAGENTA="\033[1;35m"; BLUE="\033[1;34m"; NC="\033[0m"
 # HELPERS
 # ───────────────────────────────────────────────
 detect_iface() { ip route get 1.1.1.1 2>/dev/null | awk '{print $5; exit}'; }
-fmt_uptime() { uptime -p | sed -E 's/up //' | awk '{gsub("days?","d");gsub("hours?","h");gsub("minutes?","m");printf "%s ",$0}' | sed 's/ $//'; }
+fmt_uptime() { uptime -p | sed -E 's/up //' | sed 's/  */, /g'; }
+round2() { printf "%.2f" "$1"; }
 log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
 
 # ───────────────────────────────────────────────
-# VNSTAT HANDLERS
+# VNSTAT HANDLERS (accurate billable traffic)
 # ───────────────────────────────────────────────
-get_monthly_total() {
+get_monthly_traffic() {
   local iface=$(detect_iface)
-  vnstat --oneline | while IFS=';' read -r id dev _ _ _ _ _ month_rx month_tx month_total _; do
-    [[ "$dev" == "$iface" ]] && {
-      total_gib=$(echo "$month_total" | awk '{print $1}')
-      total_gb=$(echo "scale=2; $total_gib*1.07374" | bc)
-      echo "$total_gb"
-      return
-    }
-  done
+  read rx_kib tx_kib < <(
+    vnstat --json -i "$iface" 2>/dev/null |
+      jq -r '.interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx'
+  )
+  RX_GB=$(echo "scale=6; $rx_kib / 1024 / 1024" | bc)
+  TX_GB=$(echo "scale=6; $tx_kib / 1024 / 1024" | bc)
+  RX_GB=$(round2 "$RX_GB")
+  TX_GB=$(round2 "$TX_GB")
+  TOTAL=$(echo "scale=6; $rx_kib + $tx_kib" | bc)
+  TOTAL=$(echo "scale=6; $TOTAL / 1024 / 1024" | bc)
+  TOTAL=$(round2 "$TOTAL")
+  echo "$RX_GB $TX_GB $TOTAL"
 }
 
 # ───────────────────────────────────────────────
-# BASELINE MANAGEMENT (Rounded Precision)
+# BASELINE MANAGEMENT
 # ───────────────────────────────────────────────
-BASELINE_LOG="$BASE_DIR/baseline.log"
-
-round2() { printf "%.2f" "$1"; }
-
 record_baseline_auto() {
   local iface=$(detect_iface)
   read RX TX <<<$(ip -s link show "$iface" | awk '/RX:/{getline;rx=$1} /TX:/{getline;tx=$1} END{print rx,tx}')
@@ -121,36 +125,34 @@ modify_baseline_menu() {
 }
 
 # ───────────────────────────────────────────────
-# VNSTAT MONTHLY TOTAL (Rounded)
+# AUTO SUMMARY SCHEDULER
 # ───────────────────────────────────────────────
-get_monthly_total() {
-  local iface=$(detect_iface)
-  vnstat --oneline | while IFS=';' read -r id dev _ _ _ _ _ month_rx month_tx month_total _; do
-    [[ "$dev" == "$iface" ]] && {
-      total_gib=$(echo "$month_total" | awk '{print $1}')
-      total_gb=$(echo "scale=6; $total_gib*1.07374" | bc)
-      echo "$(round2 "$total_gb")"
-      return
-    }
-  done
+auto_summary_menu() {
+  echo -e "${CYAN}Auto Summary Scheduler${NC}"
+  echo "1) Hourly  2) Daily  3) Weekly  4) Monthly  5) Disable"
+  read -rp "Choose: " x
+  case $x in
+    1) echo "0 * * * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    2) echo "0 0 * * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    3) echo "0 0 * * 0 root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    4) echo "0 0 1 * * root /usr/local/bin/vnstat-helper.sh --daily >>$DAILY_LOG 2>&1" > "$CRON_FILE";;
+    5) rm -f "$CRON_FILE";;
+    *) echo -e "${RED}Invalid option.${NC}"; return;;
+  esac
+  echo -e "${GREEN}Schedule updated.${NC}"
 }
 
 # ───────────────────────────────────────────────
-# DASHBOARD (Rounded Values)
+# DASHBOARD
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
-  BASE_TOTAL=0
-  RECORDED_TIME="N/A"
+  BASE_TOTAL=0; RECORDED_TIME="N/A"
+  [ -f "$DATA_FILE" ] && source "$DATA_FILE"
 
-  if [ -f "$DATA_FILE" ] && [ -s "$DATA_FILE" ]; then
-    source "$DATA_FILE"
-  fi
-
-  VNSTAT_TOTAL=$(get_monthly_total)
-  VNSTAT_TOTAL=$(round2 "${VNSTAT_TOTAL:-0}")
+  read RX_GB TX_GB VN_TOTAL < <(get_monthly_traffic)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
-  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $VNSTAT_TOTAL" | bc)
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $RX_GB + $TX_GB" | bc)
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
@@ -158,13 +160,13 @@ show_dashboard() {
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
   echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
   echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"  
-  echo -e "${YELLOW} Baseline:${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
-  echo -e "${YELLOW}   vnStat:${NC} ${VNSTAT_TOTAL} GB       ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e "${YELLOW}    Total:${NC} ${RED}${TOTAL_SUM} GB${NC}"
+  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e "${YELLOW} Baseline (of total):${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
+  echo -e "${YELLOW} vnStat (download):${NC}  ${RX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  echo -e "${YELLOW} vnStat (upload):${NC}    ${TX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  echo -e "${RED} Total (of total):${NC}   ${RED}${TOTAL_SUM} GB${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
-
 
 # ───────────────────────────────────────────────
 # MAIN MENU
@@ -190,7 +192,7 @@ while true; do
     6) show_dashboard ;;
     7) systemctl stop vnstat; rm -rf /var/lib/vnstat; systemctl start vnstat; echo -e "${GREEN}vnStat reset completed.${NC}" ;;
     8) modify_baseline_menu ;;
-    9) echo -e "${YELLOW}Auto summary not yet implemented.${NC}" ;;
+    9) auto_summary_menu ;;
     I) apt update -qq && apt install -y vnstat jq bc; systemctl enable vnstat; systemctl start vnstat ;;
     U) apt purge -y vnstat; rm -rf /var/lib/vnstat /etc/vnstat.conf; echo -e "${GREEN}vnStat uninstalled.${NC}" ;;
     L) tail -n 20 "$LOG_FILE" 2>/dev/null || echo -e "${YELLOW}No logs yet.${NC}" ;;
