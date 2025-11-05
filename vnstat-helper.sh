@@ -26,28 +26,46 @@ CYAN="\033[1;36m"; MAGENTA="\033[1;35m"; BLUE="\033[1;34m"; NC="\033[0m"
 # HELPERS
 # ───────────────────────────────────────────────
 detect_iface() { ip route get 1.1.1.1 2>/dev/null | awk '{print $5; exit}'; }
-fmt_uptime() { uptime -p | sed -E 's/up //' | sed 's/  */, /g'; }
 round2() { printf "%.2f" "$1"; }
 log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
+
+fmt_uptime() {
+  local up
+  up=$(uptime -p | sed 's/^up //')
+  echo "$up" | sed -E 's/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g'
+}
+
 
 # ───────────────────────────────────────────────
 # VNSTAT HANDLERS (accurate billable traffic)
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
+  local rx_kib tx_kib RX_GB TX_GB TOTAL
+
+  # Extract current month RX/TX (KiB), use 0 if null
   read rx_kib tx_kib < <(
     vnstat --json -i "$iface" 2>/dev/null |
-      jq -r '.interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx'
+      jq -r '.interfaces[0].traffic.months[-1].rx // 0,
+             .interfaces[0].traffic.months[-1].tx // 0'
   )
-  RX_GB=$(echo "scale=6; $rx_kib / 1024 / 1024" | bc)
-  TX_GB=$(echo "scale=6; $tx_kib / 1024 / 1024" | bc)
+
+  # Ensure numeric fallback
+  [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
+  [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
+
+  RX_GB=$(echo "scale=6; $rx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
+  TX_GB=$(echo "scale=6; $tx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
+
   RX_GB=$(round2 "$RX_GB")
   TX_GB=$(round2 "$TX_GB")
-  TOTAL=$(echo "scale=6; $rx_kib + $tx_kib" | bc)
-  TOTAL=$(echo "scale=6; $TOTAL / 1024 / 1024" | bc)
+
+  TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL=$(round2 "$TOTAL")
+
   echo "$RX_GB $TX_GB $TOTAL"
 }
+
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
