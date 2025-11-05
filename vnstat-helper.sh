@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.6.1"
+VERSION="2.8.6"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -135,16 +135,20 @@ get_vnstat_data() {
   for iface in $(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan'); do
     line=$(vnstat --oneline -i "$iface" 2>/dev/null || true)
     [[ -z "$line" ]] && continue
+
+    # 9th/10th fields = monthly RX/TX (GiB)
     rx=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
     tx=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
     [[ -z "$rx" || -z "$tx" ]] && continue
 
-    # Convert GiB → decimal GB (multiply once by 1.07374)
+    # Convert GiB → decimal GB
     RX_GB=$(echo "scale=6; $rx * 1.07374" | bc)
     TX_GB=$(echo "scale=6; $tx * 1.07374" | bc)
+
     total_rx=$(echo "$total_rx + $RX_GB" | bc)
     total_tx=$(echo "$total_tx + $TX_GB" | bc)
   done
+
   total_sum=$(echo "$total_rx + $total_tx" | bc)
   echo "$(round2 "$total_rx") $(round2 "$total_tx") $(round2 "$total_sum")"
 }
@@ -308,7 +312,7 @@ show_dashboard() {
 
   read RX_MB TX_MB TOTAL_MB < <(get_vnstat_data)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
-  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + ($TOTAL_MB/1024)" | bc)
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $TOTAL_MB" | bc)
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
