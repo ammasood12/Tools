@@ -42,8 +42,10 @@ get_monthly_total() {
 }
 
 # ───────────────────────────────────────────────
-# BASELINE MANAGEMENT
+# BASELINE MANAGEMENT (Enhanced)
 # ───────────────────────────────────────────────
+BASELINE_LOG="$BASE_DIR/baseline.log"
+
 record_baseline_auto() {
   local iface=$(detect_iface)
   read RX TX <<<$(ip -s link show "$iface" | awk '/RX:/{getline;rx=$1} /TX:/{getline;tx=$1} END{print rx,tx}')
@@ -77,10 +79,10 @@ select_existing_baseline() {
     return
   fi
   echo -e "${CYAN}──────────────────────────────${NC}"
-  nl -w2 -s". " "$BASELINE_LOG"
+  nl -w2 -s". " <(tac "$BASELINE_LOG")
   echo -e "${CYAN}──────────────────────────────${NC}"
   read -rp "Select a baseline number: " choice
-  line=$(sed -n "${choice}p" "$BASELINE_LOG")
+  line=$(tac "$BASELINE_LOG" | sed -n "${choice}p")
   [[ -z "$line" ]] && echo -e "${RED}Invalid selection.${NC}" && return
   value=$(echo "$line" | awk '{print $(NF-1)}')
   time=$(echo "$line" | awk '{print $1" "$2}')
@@ -115,7 +117,22 @@ modify_baseline_menu() {
 }
 
 # ───────────────────────────────────────────────
-# DASHBOARD
+# VNSTAT MONTHLY TOTAL HELPER
+# ───────────────────────────────────────────────
+get_monthly_total() {
+  local iface=$(detect_iface)
+  vnstat --oneline | while IFS=';' read -r id dev _ _ _ _ _ month_rx month_tx month_total _; do
+    [[ "$dev" == "$iface" ]] && {
+      total_gib=$(echo "$month_total" | awk '{print $1}')
+      total_gb=$(echo "scale=2; $total_gib*1.07374" | bc)
+      echo "$total_gb"
+      return
+    }
+  done
+}
+
+# ───────────────────────────────────────────────
+# DASHBOARD (Enhanced Display)
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
@@ -131,9 +148,10 @@ show_dashboard() {
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"  
   echo -e "${YELLOW} Baseline:${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
   echo -e "${YELLOW} vnStat:${NC}   ${VNSTAT_TOTAL:-0.00} GB        ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e "${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}"
-  echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+  echo -e \"${RED} Total:${NC}     ${RED}${TOTAL_SUM} GB${NC}\"
+  echo -e \"${CYAN}────────────────────────────────────────────────────────${NC}\"
 }
+
 
 # ───────────────────────────────────────────────
 # MAIN MENU
