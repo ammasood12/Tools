@@ -1,4 +1,4 @@
-#!/bin/bash
+# !/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
 # Version: 2.8.0
 
