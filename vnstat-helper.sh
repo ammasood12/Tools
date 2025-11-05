@@ -1,15 +1,16 @@
-#!/bin/bash
+# !/bin/bash
 # 🌐 VNSTAT HELPER — Billable Traffic Edition
-# Version: 2.4.3
-# Description: Accurate vnStat-based billing traffic monitor with auto-unit conversion,
-#              baseline management, auto-summary scheduler, and direct vnStat command access.
+# Version: 2.5.0
+# Author: ChatGPT
+# Description: Uses `vnstat --oneline` for faster, accurate billable traffic monitoring
+#              with auto-unit conversion, baseline management, and vnStat utilities.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.3"
+VERSION="2.5.0"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -37,6 +38,7 @@ format_size() {
   local val="$1"
   local unit="MB"
   [[ -z "$val" ]] && val=0
+
   if (( $(echo "$val >= 1000" | bc -l) )); then
     val=$(echo "scale=2; $val/1024" | bc)
     unit="GB"
@@ -45,43 +47,41 @@ format_size() {
     val=$(echo "scale=2; $val/1024" | bc)
     unit="TB"
   fi
+
   echo "$(round2 "$val") $unit"
 }
 
 # ───────────────────────────────────────────────
-# VNSTAT BILLABLE TRAFFIC HANDLER (KiB→MB)
+# VNSTAT DATA RETRIEVAL (via --oneline)
 # ───────────────────────────────────────────────
-get_monthly_traffic() {
+get_vnstat_data() {
   local iface=$(detect_iface)
-  local rx_kib tx_kib RX_MB TX_MB TOTAL_MB ready_flag=1
+  local rx tx total ready_flag=1
 
-  read rx_kib tx_kib < <(
-    vnstat --json -i "$iface" 2>/dev/null |
-      jq -r '
-        if (.interfaces[0].traffic.months | length) > 0 then
-          .interfaces[0].traffic.months[-1].rx,
-          .interfaces[0].traffic.months[-1].tx
-        elif .interfaces[0].traffic.total.rx then
-          .interfaces[0].traffic.total.rx,
-          .interfaces[0].traffic.total.tx
-        else
-          0,0
-        end
-      '
-  )
+  # Format: id;iface;day;rx_day;tx_day;total_day;rate;month;rx_month;tx_month;total_month;...
+  line=$(vnstat --oneline -i "$iface" 2>/dev/null || echo "")
+  if [[ -z "$line" ]]; then
+    echo "0 0 0 0"; return
+  fi
 
-  [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
-  [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
+  rx=$(echo "$line" | awk -F';' '{print $9}' | awk '{print $1}')
+  tx=$(echo "$line" | awk -F';' '{print $10}' | awk '{print $1}')
+  total=$(echo "$line" | awk -F';' '{print $11}' | awk '{print $1}')
 
-  # KiB → MB
-  RX_MB=$(echo "scale=6; $rx_kib/1024" | bc 2>/dev/null || echo "0")
-  TX_MB=$(echo "scale=6; $tx_kib/1024" | bc 2>/dev/null || echo "0")
+  # Convert GiB → GB (decimal)
+  RX_GB=$(echo "scale=6; $rx * 1.07374" | bc)
+  TX_GB=$(echo "scale=6; $tx * 1.07374" | bc)
+  TOTAL_GB=$(echo "scale=6; $total * 1.07374" | bc)
+
+  # Convert to MB for unified formatter
+  RX_MB=$(echo "scale=6; $RX_GB * 1024" | bc)
+  TX_MB=$(echo "scale=6; $TX_GB * 1024" | bc)
+  TOTAL_MB=$(echo "scale=6; $TOTAL_GB * 1024" | bc)
 
   [[ "$RX_MB" == "0.00" && "$TX_MB" == "0.00" ]] && ready_flag=0
 
   RX_MB=$(round2 "$RX_MB")
   TX_MB=$(round2 "$TX_MB")
-  TOTAL_MB=$(echo "scale=6; $RX_MB + $TX_MB" | bc 2>/dev/null || echo "0")
   TOTAL_MB=$(round2 "$TOTAL_MB")
 
   echo "$RX_MB $TX_MB $TOTAL_MB $ready_flag"
@@ -226,7 +226,7 @@ show_dashboard() {
   BASE_TOTAL=0; RECORDED_TIME="N/A"
   [ -f "$DATA_FILE" ] && source "$DATA_FILE"
 
-  read RX_MB TX_MB TOTAL_MB READY < <(get_monthly_traffic)
+  read RX_MB TX_MB TOTAL_MB READY < <(get_vnstat_data)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
   TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + ($TOTAL_MB/1024)" | bc 2>/dev/null || echo "0")
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
@@ -246,7 +246,7 @@ show_dashboard() {
     echo -e "${YELLOW} vnStat (download):${NC}  ${YELLOW}Collecting data... (vnStat updating)${NC}"
     echo -e "${YELLOW} vnStat (upload):${NC}    ${YELLOW}Collecting data... (vnStat updating)${NC}"
   fi
-  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$(echo "$TOTAL_MB" | bc)")${NC}"
+  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_MB")${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   echo -e " ${GREEN}[0]${NC} View Auto Summary Log"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
