@@ -1,15 +1,14 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Billable Traffic Edition
-# Version: 2.4.0
-# Description: vnStat control panel showing real billable (download/upload) traffic
-#              with advanced baseline management and auto-summary scheduler.
+# Version: 2.4.1
+# Description: Accurate vnStat-based billing traffic monitor with baseline management and auto-summary.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.0"
+VERSION="2.4.1"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -26,53 +25,61 @@ CYAN="\033[1;36m"; MAGENTA="\033[1;35m"; BLUE="\033[1;34m"; NC="\033[0m"
 # HELPERS
 # ───────────────────────────────────────────────
 detect_iface() { ip route get 1.1.1.1 2>/dev/null | awk '{print $5; exit}'; }
+fmt_uptime() { uptime -p | sed -E 's/^up //' | sed -E 's/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g'; }
 round2() { printf "%.2f" "$1"; }
 log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
 
-fmt_uptime() {
-  local up
-  up=$(uptime -p | sed 's/^up //')
-  echo "$up" | sed -E 's/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g'
-}
-
-
 # ───────────────────────────────────────────────
-# VNSTAT HANDLERS (accurate billable traffic)
+# VNSTAT BILLABLE TRAFFIC HANDLER (auto-unit, data-ready check)
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
-  local rx_kib tx_kib RX_GB TX_GB TOTAL
+  local rx tx unit RX_GB TX_GB TOTAL
+  local ready_flag=1
 
-  # Try to get current month (latest) from JSON; fallback to total if empty
-  read rx_kib tx_kib < <(
+  # Pull month data + unit (auto-detect)
+  read rx tx unit < <(
     vnstat --json -i "$iface" 2>/dev/null |
-      jq -r '(
+      jq -r '
         if (.interfaces[0].traffic.months | length) > 0 then
-          .interfaces[0].traffic.months[-1].rx, .interfaces[0].traffic.months[-1].tx
+          .interfaces[0].traffic.months[-1].rx,
+          .interfaces[0].traffic.months[-1].tx,
+          (.interfaces[0].unit // "KiB")
         else
-          .interfaces[0].traffic.total.rx, .interfaces[0].traffic.total.tx
+          0,0,("KiB")
         end
-      ) // 0'
+      '
   )
 
-  # Numeric sanity check
-  [[ -z "$rx_kib" || "$rx_kib" == "null" ]] && rx_kib=0
-  [[ -z "$tx_kib" || "$tx_kib" == "null" ]] && tx_kib=0
+  [[ -z "$rx" || "$rx" == "null" ]] && rx=0 && ready_flag=0
+  [[ -z "$tx" || "$tx" == "null" ]] && tx=0 && ready_flag=0
 
-  # Convert KiB → GB
-  RX_GB=$(echo "scale=6; $rx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
-  TX_GB=$(echo "scale=6; $tx_kib / 1024 / 1024" | bc 2>/dev/null || echo "0")
+  # Convert to GB (decimal)
+  case "$unit" in
+    *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+    *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0") ;;
+    *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0") ;;
+    *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+  esac
 
-  RX_GB=$(round2 "$RX_GB")
-  TX_GB=$(round2 "$TX_GB")
+  case "$unit" in
+    *KiB*) TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+    *MiB*) TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0") ;;
+    *GiB*) TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0") ;;
+    *)     TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+  esac
 
+  RX_GB=$(round2 "$RX_GB"); TX_GB=$(round2 "$TX_GB")
   TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL=$(round2 "$TOTAL")
 
-  echo "$RX_GB $TX_GB $TOTAL"
+  # If vnStat hasn’t produced values yet
+  if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then
+    ready_flag=0
+  fi
+
+  echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
-
-
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
@@ -175,9 +182,9 @@ show_dashboard() {
   BASE_TOTAL=0; RECORDED_TIME="N/A"
   [ -f "$DATA_FILE" ] && source "$DATA_FILE"
 
-  read RX_GB TX_GB VN_TOTAL < <(get_monthly_traffic)
+  read RX_GB TX_GB VN_TOTAL READY < <(get_monthly_traffic)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
-  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $RX_GB + $TX_GB" | bc)
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
@@ -186,9 +193,15 @@ show_dashboard() {
   echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
   echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+
   echo -e "${YELLOW} Baseline (of total):${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
-  echo -e "${YELLOW} vnStat (download):${NC}  ${RX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
-  echo -e "${YELLOW} vnStat (upload):${NC}    ${TX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  if [[ "$READY" -eq 1 ]]; then
+    echo -e "${YELLOW} vnStat (download):${NC}  ${RX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+    echo -e "${YELLOW} vnStat (upload):${NC}    ${TX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+  else
+    echo -e "${YELLOW} vnStat (download):${NC}  ${YELLOW}Collecting data... (vnStat updating)${NC}"
+    echo -e "${YELLOW} vnStat (upload):${NC}    ${YELLOW}Collecting data... (vnStat updating)${NC}"
+  fi
   echo -e "${RED} Total (of total):${NC}   ${RED}${TOTAL_SUM} GB${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
