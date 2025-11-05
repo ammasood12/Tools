@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
 # Version: 2.8.0
 
@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.2"
+VERSION="2.8.3"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -54,7 +54,13 @@ check_dependencies
 detect_ifaces() {
   ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan' | paste -sd, -
 }
-fmt_uptime() { uptime -p | sed -E 's/^up //' | sed -E 's/days?/d/g; s/hours?/h/g; s/minutes?/m/g; s/seconds?/s/g; s/,//g'; }
+fmt_uptime() {
+  uptime -p \
+    | sed -E 's/^up //' \
+    | sed -E 's/ day[s]?/d/g; s/ hour[s]?/h/g; s/ minute[s]?/m/g; s/ second[s]?/s/g; s/,//g' \
+    | xargs
+}
+
 round2() { printf "%.2f" "$1"; }
 
 # ───────────────────────────────────────────────
@@ -262,7 +268,7 @@ show_dashboard() {
   printf "${MAGENTA}   %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
     "Boot Time:" "$(who -b | awk '{print $3, $4}')" "Interfaces:" "$(detect_ifaces)"
   printf "${MAGENTA}   %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
-    "Server Time:" "$(date '+%Y-%m-%d %H:%M:%S')" "Uptime:" "$(fmt_uptime)"
+    "Server Time:" "$(date '+%Y-%m-%d %H:%M')" "Uptime:" "$(fmt_uptime)"
   echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
   printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
