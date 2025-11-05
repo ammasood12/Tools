@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.5"
+VERSION="2.8.6"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -91,6 +91,40 @@ format_size() {
     unit="TB"
   fi
   echo "$(round2 "$val") $unit"
+}
+
+# ───────────────────────────────────────────────
+# SYSTEM INFORMATION
+# ───────────────────────────────────────────────
+system_info() {
+  clear
+  echo -e "${BLUE}╔════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BLUE}           🖥️  System Information${NC}"
+  echo -e "${BLUE}╚════════════════════════════════════════════════════╝${NC}"
+
+  local HOSTNAME=$(hostname)
+  local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+  local KERNEL=$(uname -r)
+  local CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | xargs)
+  local CORES=$(nproc)
+  local MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
+  local MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
+  local DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
+  local DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
+  local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
+  local IP=$(hostname -I | awk '{print $1}')
+
+  echo -e "${YELLOW}Hostname:${NC}        $HOSTNAME"
+  echo -e "${YELLOW}OS:${NC}              $OS"
+  echo -e "${YELLOW}Kernel:${NC}          $KERNEL"
+  echo -e "${YELLOW}CPU:${NC}             $CPU ($CORES cores)"
+  echo -e "${YELLOW}Memory:${NC}          ${MEM_USED}MB / ${MEM_TOTAL}MB"
+  echo -e "${YELLOW}Disk:${NC}            ${DISK_USED} / ${DISK_TOTAL}"
+  echo -e "${YELLOW}Load Average:${NC}    $LOAD"
+  echo -e "${YELLOW}IP Address:${NC}      $IP"
+  echo -e "${CYAN}────────────────────────────────────────────────────${NC}"
+
+  read -n 1 -s -r -p "Press any key to return..."
 }
 
 # ───────────────────────────────────────────────
@@ -299,7 +333,8 @@ while true; do
   echo -e " ${GREEN}[1]${NC} Daily Stats             ${GREEN}[5]${NC} Baseline Options"
   echo -e " ${GREEN}[2]${NC} Monthly Stats           ${GREEN}[6]${NC} vnStat Functions"
   echo -e " ${GREEN}[3]${NC} View Traffic Log        ${GREEN}[7]${NC} Traffic Options"
-  echo -e " ${GREEN}[4]${NC} View Logs               ${GREEN}[0]${NC} Quit"
+  echo -e " ${GREEN}[4]${NC} View Logs               ${GREEN}[8]${NC} System Information"
+  echo -e " ${GREEN}[0]${NC} Quit"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   read -rp "Select: " ch
   echo ""
@@ -311,6 +346,7 @@ while true; do
     5) baseline_menu ;;
     6) vnstat_functions_menu ;;
     7) auto_traffic_menu ;;
+	8) system_info ;;
     0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
     *) echo -e "${RED}Invalid option.${NC}" ;;
   esac
