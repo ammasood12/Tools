@@ -46,49 +46,45 @@ format_size() {
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
-  local rx tx unit RX_GB TX_GB TOTAL ready_flag=1
+  local rx_gib tx_gib unit RX_GB TX_GB TOTAL ready_flag=1
 
-  read rx tx unit < <(
+  # Pull monthly RX/TX in GiB (vnStat 2.x reports in GiB)
+  read rx_gib tx_gib unit < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
         if (.interfaces[0].traffic.months | length) > 0 then
-          .interfaces[0].traffic.months[-1].rx,
-          .interfaces[0].traffic.months[-1].tx,
-          (.interfaces[0].unit // "MiB")
+          .interfaces[0].traffic.months[-1].rx/1024,
+          .interfaces[0].traffic.months[-1].tx/1024,
+          "GiB"
         elif .interfaces[0].traffic.total.rx then
-          .interfaces[0].traffic.total.rx,
-          .interfaces[0].traffic.total.tx,
-          (.interfaces[0].unit // "MiB")
+          .interfaces[0].traffic.total.rx/1024,
+          .interfaces[0].traffic.total.tx/1024,
+          "GiB"
         else
-          0,0,"MiB"
+          0,0,"GiB"
         end
       '
   )
 
-  [[ -z "$rx" || "$rx" == "null" ]] && rx=0
-  [[ -z "$tx" || "$tx" == "null" ]] && tx=0
+  # Default values if empty
+  [[ -z "$rx_gib" || "$rx_gib" == "null" ]] && rx_gib=0
+  [[ -z "$tx_gib" || "$tx_gib" == "null" ]] && tx_gib=0
 
-  case "$unit" in
-    *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
-    *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0");;
-    *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0");;
-    *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
-  esac
+  # Convert GiB → GB (billable decimal)
+  RX_GB=$(echo "scale=6; $rx_gib*1.07374" | bc 2>/dev/null || echo "0")
+  TX_GB=$(echo "scale=6; $tx_gib*1.07374" | bc 2>/dev/null || echo "0")
 
-  RX_GB=$(round2 "$RX_GB")
-  TX_GB=$(round2 "$TX_GB")
+  RX_GB=$(round2 "$RX_GB"); TX_GB=$(round2 "$TX_GB")
 
-  if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then ready_flag=0; fi
+  # Data-ready check
+  [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]] && ready_flag=0
 
   TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL=$(round2 "$TOTAL")
 
   echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
+
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
