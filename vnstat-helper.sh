@@ -1,14 +1,15 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Billable Traffic Edition
-# Version: 2.4.1
-# Description: Accurate vnStat-based billing traffic monitor with baseline management and auto-summary.
+# Version: 2.4.2
+# Description: Accurate vnStat-based billing traffic monitor with baseline manager,
+#              auto-summary scheduler, and direct vnStat command access.
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.4.1.1"
+VERSION="2.4.2"
 BASE_DIR="/root/vnstat-helper"
 DATA_FILE="$BASE_DIR/baseline"
 BASELINE_LOG="$BASE_DIR/baseline.log"
@@ -29,15 +30,24 @@ fmt_uptime() { uptime -p | sed -E 's/^up //' | sed -E 's/days?/d/g; s/hours?/h/g
 round2() { printf "%.2f" "$1"; }
 log_event() { echo "$(date '+%F %T') - $1" >> "$LOG_FILE"; }
 
+# convert GB → TB if value ≥ 1000
+format_size() {
+  local val="$1"
+  if (( $(echo "$val >= 1000" | bc -l) )); then
+    val=$(echo "scale=2; $val/1024" | bc)
+    echo "$(round2 "$val") TB"
+  else
+    echo "$(round2 "$val") GB"
+  fi
+}
+
 # ───────────────────────────────────────────────
-# VNSTAT BILLABLE TRAFFIC HANDLER (auto-unit, data-ready check)
+# VNSTAT BILLABLE TRAFFIC HANDLER (auto-unit)
 # ───────────────────────────────────────────────
 get_monthly_traffic() {
   local iface=$(detect_iface)
-  local rx tx unit RX_GB TX_GB TOTAL
-  local ready_flag=1
+  local rx tx unit RX_GB TX_GB TOTAL ready_flag=1
 
-  # Extract month RX/TX and detect data unit safely
   read rx tx unit < <(
     vnstat --json -i "$iface" 2>/dev/null |
       jq -r '
@@ -55,36 +65,30 @@ get_monthly_traffic() {
       '
   )
 
-  # Default numeric values
   [[ -z "$rx" || "$rx" == "null" ]] && rx=0
   [[ -z "$tx" || "$tx" == "null" ]] && tx=0
 
-  # Convert depending on unit type
   case "$unit" in
     *KiB*) RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
     *MiB*) RX_GB=$(echo "scale=6; $rx/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0") ;;
+           TX_GB=$(echo "scale=6; $tx/1024" | bc 2>/dev/null || echo "0");;
     *GiB*) RX_GB=$(echo "scale=6; $rx*1.07374" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0") ;;
+           TX_GB=$(echo "scale=6; $tx*1.07374" | bc 2>/dev/null || echo "0");;
     *)     RX_GB=$(echo "scale=6; $rx/1024/1024" | bc 2>/dev/null || echo "0")
-           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0") ;;
+           TX_GB=$(echo "scale=6; $tx/1024/1024" | bc 2>/dev/null || echo "0");;
   esac
 
   RX_GB=$(round2 "$RX_GB")
   TX_GB=$(round2 "$TX_GB")
 
-  # If both are zero, assume vnStat not ready yet
-  if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then
-    ready_flag=0
-  fi
+  if [[ "$RX_GB" == "0.00" && "$TX_GB" == "0.00" ]]; then ready_flag=0; fi
 
   TOTAL=$(echo "scale=6; $RX_GB + $TX_GB" | bc 2>/dev/null || echo "0")
   TOTAL=$(round2 "$TOTAL")
 
   echo "$RX_GB $TX_GB $TOTAL $ready_flag"
 }
-
 
 # ───────────────────────────────────────────────
 # BASELINE MANAGEMENT
@@ -119,22 +123,15 @@ record_baseline_manual() {
 }
 
 select_existing_baseline() {
-  if [ ! -s "$BASELINE_LOG" ]; then
-    echo -e "${RED}No saved baselines yet.${NC}"
-    return
-  fi
+  if [ ! -s "$BASELINE_LOG" ]; then echo -e "${RED}No saved baselines yet.${NC}"; return; fi
   echo -e "${CYAN}──────────────────────────────${NC}"
   nl -w2 -s". " <(tac "$BASELINE_LOG")
   echo -e "${CYAN}──────────────────────────────${NC}"
   read -rp "Select a baseline number: " choice
   line=$(tac "$BASELINE_LOG" | sed -n "${choice}p")
   [[ -z "$line" ]] && echo -e "${RED}Invalid selection.${NC}" && return
-  value=$(echo "$line" | awk '{print $(NF-1)}')
-  time=$(echo "$line" | awk '{print $1" "$2}')
-  {
-    echo "BASE_TOTAL=$(round2 "$value")"
-    echo "RECORDED_TIME=\"$time\""
-  } > "$DATA_FILE"
+  value=$(echo "$line" | awk '{print $(NF-1)}'); time=$(echo "$line" | awk '{print $1" "$2}')
+  { echo "BASE_TOTAL=$(round2 "$value")"; echo "RECORDED_TIME=\"$time\""; } > "$DATA_FILE"
   echo -e "${GREEN}Active baseline switched to ${YELLOW}$(round2 "$value") GB${NC} (Recorded: $time)"
 }
 
@@ -162,7 +159,7 @@ modify_baseline_menu() {
 }
 
 # ───────────────────────────────────────────────
-# AUTO SUMMARY SCHEDULER
+# AUTO SUMMARY + VIEW LOG
 # ───────────────────────────────────────────────
 auto_summary_menu() {
   echo -e "${CYAN}Auto Summary Scheduler${NC}"
@@ -179,9 +176,6 @@ auto_summary_menu() {
   echo -e "${GREEN}Schedule updated.${NC}"
 }
 
-# ───────────────────────────────────────────────
-# VIEW AUTO SUMMARY LOG
-# ───────────────────────────────────────────────
 view_auto_summary_log() {
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   echo -e "${YELLOW} Auto Summary Log — $DAILY_LOG ${NC}"
@@ -194,9 +188,45 @@ view_auto_summary_log() {
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
 
+# ───────────────────────────────────────────────
+# VNSTAT FUNCTIONS MENU
+# ───────────────────────────────────────────────
+vnstat_functions_menu() {
+  local iface=$(detect_iface)
+  while true; do
+    clear
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}             📊 vnStat Functions Menu${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════╝${NC}"
+    echo -e " ${GREEN}[1]${NC} Daily (vnstat --days)"
+    echo -e " ${GREEN}[2]${NC} Weekly (vnstat --weeks)"
+    echo -e " ${GREEN}[3]${NC} Monthly (vnstat --months)"
+    echo -e " ${GREEN}[4]${NC} Yearly (vnstat --years)"
+    echo -e " ${GREEN}[5]${NC} Top Days (vnstat --top)"
+    echo -e " ${GREEN}[6]${NC} Hours (vnstat --hours)"
+    echo -e " ${GREEN}[7]${NC} Hours Graph (vnstat --hoursgraph)"
+    echo -e " ${GREEN}[8]${NC} 5-min Graph (vnstat --fiveminutes)"
+    echo -e " ${GREEN}[Q]${NC} Return"
+    echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
+    read -rp "Select: " f
+    case "${f^^}" in
+      1) vnstat --days -i "$iface";;
+      2) vnstat --weeks -i "$iface";;
+      3) vnstat --months -i "$iface";;
+      4) vnstat --years -i "$iface";;
+      5) vnstat --top -i "$iface";;
+      6) vnstat --hours -i "$iface";;
+      7) vnstat --hoursgraph -i "$iface";;
+      8) vnstat --fiveminutes -i "$iface";;
+      Q) return;;
+      *) echo -e "${RED}Invalid option.${NC}";;
+    esac
+    read -n 1 -s -r -p "Press any key to continue..."
+  done
+}
 
 # ───────────────────────────────────────────────
-# DASHBOARD (with Data-Ready Check + Summary Log Option)
+# DASHBOARD
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
@@ -212,23 +242,22 @@ show_dashboard() {
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
   echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
   echo -e "${MAGENTA}   Boot Time:${NC} $(who -b | awk '{print $3, $4}')      ${MAGENTA} Interface:${NC} $(detect_iface)"
-  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M:%S')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
+  echo -e "${MAGENTA} Server Time:${NC} $(date '+%Y-%m-%d %H:%M')      ${MAGENTA} Uptime:${NC} $(fmt_uptime)"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 
-  echo -e "${YELLOW} Baseline (of total):${NC} ${BASE_TOTAL} GB       (${RECORDED_TIME})"
+  echo -e "${YELLOW} Baseline (of total):${NC} $(format_size "$BASE_TOTAL")       (${RECORDED_TIME})"
   if [[ "$READY" -eq 1 ]]; then
-    echo -e "${YELLOW} vnStat (download):${NC}  ${RX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
-    echo -e "${YELLOW} vnStat (upload):${NC}    ${TX_GB} GB       ($(date '+%Y-%m-%d %H:%M'))"
+    echo -e "${YELLOW} vnStat (download):${NC}  $(format_size "$RX_GB")       ($(date '+%Y-%m-%d %H:%M'))"
+    echo -e "${YELLOW} vnStat (upload):${NC}    $(format_size "$TX_GB")       ($(date '+%Y-%m-%d %H:%M'))"
   else
     echo -e "${YELLOW} vnStat (download):${NC}  ${YELLOW}Collecting data... (vnStat updating)${NC}"
     echo -e "${YELLOW} vnStat (upload):${NC}    ${YELLOW}Collecting data... (vnStat updating)${NC}"
   fi
-  echo -e "${RED} Total (of total):${NC}   ${RED}${TOTAL_SUM} GB${NC}"
+  echo -e "${RED} Total (of total):${NC}   ${RED}$(format_size "$TOTAL_SUM")${NC}"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
   echo -e " ${GREEN}[0]${NC} View Auto Summary Log"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
 }
-
 
 # ───────────────────────────────────────────────
 # MAIN MENU
@@ -239,7 +268,7 @@ while true; do
   echo -e " ${GREEN}[2]${NC} Weekly Stats          ${GREEN}[7]${NC} Reset vnStat DB"
   echo -e " ${GREEN}[3]${NC} Monthly Stats         ${GREEN}[8]${NC} Modify Baseline"
   echo -e " ${GREEN}[4]${NC} Hourly Stats          ${GREEN}[9]${NC} Auto Summary Scheduler"
-  echo -e " ${GREEN}[5]${NC} Top 10 Traffic Days   ${GREEN}[L]${NC} View Logs"
+  echo -e " ${GREEN}[5]${NC} vnStat Functions      ${GREEN}[L]${NC} View Logs"
   echo -e " ${GREEN}[I]${NC} Install/Update vnStat ${GREEN}[U]${NC} Uninstall"
   echo -e " ${GREEN}[Q]${NC} Quit"
   echo -e "${CYAN}────────────────────────────────────────────────────────${NC}"
@@ -251,7 +280,7 @@ while true; do
     2) vnstat --weeks -i $(detect_iface) ;;
     3) vnstat --months -i $(detect_iface) ;;
     4) vnstat --hours -i $(detect_iface) ;;
-    5) vnstat --top ;;
+    5) vnstat_functions_menu ;;
     6) show_dashboard ;;
     7) systemctl stop vnstat; rm -rf /var/lib/vnstat; systemctl start vnstat; echo -e "${GREEN}vnStat reset completed.${NC}" ;;
     8) modify_baseline_menu ;;
