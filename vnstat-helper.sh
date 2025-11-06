@@ -349,7 +349,7 @@ show_dashboard() {
 
   read RX_GB TX_GB TOTAL_GB < <(get_vnstat_data)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
-  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $TOTAL_MB" | bc)
+  TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $TOTAL_GB" | bc)
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
