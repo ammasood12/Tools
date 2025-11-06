@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.6.1"
+VERSION="2.8.62"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -150,16 +150,20 @@ get_vnstat_data() {
     case "$rx_unit" in
       KiB|kib) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
       MiB|mib) RX_GB=$(echo "scale=6; $rx_val/1024" | bc) ;;
-      GiB|gib|G|Gi) RX_GB=$(echo "scale=6; $rx_val*1.07374" | bc) ;;
-      TiB|tib|T|Ti) RX_GB=$(echo "scale=6; $rx_val*1024*1.07374" | bc) ;;
+      GiB|gib|G|Gi) RX_GB=$(echo "$rx_val") ;;
+      TiB|tib|T|Ti) RX_GB=$(echo "$rx_val") ;;
+      # GiB|gib|G|Gi) RX_GB=$(echo "scale=6; $rx_val*1.07374" | bc) ;;
+      # TiB|tib|T|Ti) RX_GB=$(echo "scale=6; $rx_val*1024*1.07374" | bc) ;;
       *) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
     esac
 
     case "$tx_unit" in
       KiB|kib) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
       MiB|mib) TX_GB=$(echo "scale=6; $tx_val/1024" | bc) ;;
-      GiB|gib|G|Gi) TX_GB=$(echo "scale=6; $tx_val*1.07374" | bc) ;;
-      TiB|tib|T|Ti) TX_GB=$(echo "scale=6; $tx_val*1024*1.07374" | bc) ;;
+      GiB|gib|G|Gi) TX_GB=$(echo "$tx_val") ;;
+      TiB|tib|T|Ti) TX_GB=$(echo "$tx_val") ;;
+      # GiB|gib|G|Gi) TX_GB=$(echo "scale=6; $tx_val*1.07374" | bc) ;;
+      # TiB|tib|T|Ti) TX_GB=$(echo "scale=6; $tx_val*1024*1.07374" | bc) ;;
       *) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
     esac
 
