@@ -431,7 +431,7 @@
 	  echo -e " ${GREEN}[2]${NC} Monthly Stats           ${GREEN}[6]${NC} vnStat Functions"
 	  echo -e " ${GREEN}[3]${NC} Traffic Log             ${GREEN}[7]${NC} Traffic Options"
 	  echo -e " ${GREEN}[4]${NC} Logs                    ${GREEN}[0]${NC} Quit"
-	  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
+	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
 	  read -rp "Select: " ch
 	  echo ""
 	  case "${ch^^}" in
