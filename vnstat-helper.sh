@@ -108,11 +108,6 @@
 	# SYSTEM INFORMATION
 	# ───────────────────────────────────────────────
 	system_info() {
-	  clear
-	  echo -e "${BLUE}╔════════════════════════════════════════════════════╗${NC}"
-	  echo -e "${BLUE}           🖥️  System Information${NC}"
-	  echo -e "${BLUE}╚════════════════════════════════════════════════════╝${NC}"
-
 	  local HOSTNAME=$(hostname)
 	  local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
 	  local KERNEL=$(uname -r)
@@ -125,17 +120,14 @@
 	  local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
 	  local IP=$(hostname -I | awk '{print $1}')
 
-	  echo -e "${YELLOW}Hostname:${NC}        $HOSTNAME"
-	  echo -e "${YELLOW}OS:${NC}              $OS"
-	  echo -e "${YELLOW}Kernel:${NC}          $KERNEL"
-	  echo -e "${YELLOW}CPU:${NC}             $CPU ($CORES cores)"
-	  echo -e "${YELLOW}Memory:${NC}          ${MEM_USED}MB / ${MEM_TOTAL}MB"
-	  echo -e "${YELLOW}Disk:${NC}            ${DISK_USED} / ${DISK_TOTAL}"
-	  echo -e "${YELLOW}Load Average:${NC}    $LOAD"
-	  echo -e "${YELLOW}IP Address:${NC}      $IP"
-	  echo -e "${CYAN}────────────────────────────────────────────────────${NC}"
-
-	  read -n 1 -s -r -p "Press any key to return..."
+	  echo -e "${YELLOW} Hostname:${NC}        $HOSTNAME"
+	  echo -e "${YELLOW} OS:${NC}              $OS"
+	  echo -e "${YELLOW} Kernel:${NC}          $KERNEL"
+	  echo -e "${YELLOW} CPU:${NC}             $CPU ($CORES cores)"
+	  echo -e "${YELLOW} Memory:${NC}          ${MEM_USED}MB / ${MEM_TOTAL}MB"
+	  echo -e "${YELLOW} Disk:${NC}            ${DISK_USED} / ${DISK_TOTAL}"
+	  echo -e "${YELLOW} Load Average:${NC}    $LOAD"
+	  echo -e "${YELLOW} IP Address:${NC}      $IP"
 	}
 
 	# ───────────────────────────────────────────────
@@ -382,20 +374,7 @@
 	# DASHBOARD
 	# ───────────────────────────────────────────────
 	show_dashboard() {
-	  clear
-	  # System Information
-	  local HOSTNAME=$(hostname)
-	  local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-	  local KERNEL=$(uname -r)
-	  local CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | xargs)
-	  local CORES=$(nproc)
-	  local MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
-	  local MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
-	  local DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
-	  local DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
-	  local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
-	  local IP=$(hostname -I | awk '{print $1}')
-	  
+	  clear	  
 	  # Data Information
 	  BASE_TOTAL=0; BASE_RX=0; BASE_TX=0; RECORDED_TIME="N/A"
 	  [ -f "$DATA_FILE" ] && source "$DATA_FILE"
@@ -426,28 +405,12 @@
 	  echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 	  echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
 	  echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"    
-	  echo -e "${YELLOW} Hostname:${NC}        $HOSTNAME"
-	  echo -e "${YELLOW} OS:${NC}              $OS"
-	  echo -e "${YELLOW} Kernel:${NC}          $KERNEL"
-	  echo -e "${YELLOW} CPU:${NC}             $CPU ($CORES cores)"
-	  echo -e "${YELLOW} Memory:${NC}          ${MEM_USED}MB / ${MEM_TOTAL}MB"
-	  echo -e "${YELLOW} Disk:${NC}            ${DISK_USED} / ${DISK_TOTAL}"
-	  echo -e "${YELLOW} Load Average:${NC}    $LOAD"
-	  echo -e "${YELLOW} IP Address:${NC}      $IP"
-	  echo -e "${YELLOW} IP Address:${NC}      $IP"
+	  system_info
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"    
 	  printf "${MAGENTA} %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
 		"Boot Time:" "$(who -b | awk '{print $3, $4}')" "Interfaces:" "$(detect_ifaces)"
 	  printf "${MAGENTA} %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
 		"Server Time:" "$(date '+%Y-%m-%d %H:%M')" "Uptime:" "$(fmt_uptime)"
-	  # echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
-	  # printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
-	  # echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-	  # printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL" | bc)")" "$RECORDED_TIME"
-	  # printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_GB")" "$(date '+%Y-%m-%d %H:%M')"
-	  # printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_GB")" "$(date '+%Y-%m-%d %H:%M')"
-	  # printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_GB")" "$(date '+%Y-%m-%d %H:%M')"
-	  # echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"  
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
 	  printf "${YELLOW} %-10s %-10s %-10s %-10s %-20s ${NC}\n" "Type" "RX/DL" "TX/UL" "Total" "Timestamp"
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
@@ -467,8 +430,7 @@
 	  echo -e " ${GREEN}[1]${NC} Daily Stats             ${GREEN}[5]${NC} Baseline Options"
 	  echo -e " ${GREEN}[2]${NC} Monthly Stats           ${GREEN}[6]${NC} vnStat Functions"
 	  echo -e " ${GREEN}[3]${NC} Traffic Log             ${GREEN}[7]${NC} Traffic Options"
-	  echo -e " ${GREEN}[4]${NC} Logs                    ${GREEN}[8]${NC} System Information"
-	  echo -e " ${GREEN}[0]${NC} Quit"
+	  echo -e " ${GREEN}[4]${NC} Logs                    ${GREEN}[0]${NC} Quit"
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
 	  read -rp "Select: " ch
 	  echo ""
@@ -480,8 +442,6 @@
 		5) baseline_menu ;;
 		6) vnstat_functions_menu ;;
 		7) auto_traffic_menu ;;
-		8) system_info ;;
-		0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
 		*) echo -e "${RED}Invalid option.${NC}" ;;
 	  esac
 	  echo ""
