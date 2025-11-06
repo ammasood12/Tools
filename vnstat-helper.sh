@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.63"
+VERSION="2.8.64"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -82,10 +82,10 @@ format_size() {
   local val="$1"
   local unit="MB"
   [[ -z "$val" ]] && val=0
-  if (( $(echo "$val >= 1000" | bc -l) )); then
-    val=$(echo "scale=2; $val/1024" | bc)
-    unit="GB"
-  fi
+  # if (( $(echo "$val >= 1000" | bc -l) )); then
+    # val=$(echo "scale=2; $val/1024" | bc)
+    # unit="GB"
+  # fi
   if (( $(echo "$val >= 1000" | bc -l) )); then
     val=$(echo "scale=2; $val/1024" | bc)
     unit="TB"
