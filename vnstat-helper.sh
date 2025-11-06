@@ -1,13 +1,13 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-# Version: 2.8.0
+# Version: 2.8.8
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.7"
+VERSION="2.8.8"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -224,25 +224,35 @@ record_baseline_auto() {
   # record baseline data to file
   total=$(echo "$total_rx + $total_tx" | bc)
   local TIME=$(date '+%Y-%m-%d %H:%M')  
+  # set main baseline data
   {
     echo "BASE_RX=$(round2 "$total_rx")"
 	echo "BASE_TX=$(round2 "$total_tx")"
 	echo "BASE_TOTAL=$(round2 "$total")"
 	echo "RECORDED_TIME=\"$TIME\""
   } > "$DATA_FILE"
-  echo "$TIME | Auto | $total GB" >> "$BASELINE_LOG"
+  # update baseline log
+  echo "$TIME | Auto | $total_rx GB" | $total_tx GB" | $total GB" >> "$BASELINE_LOG"
+  
   echo -e "${GREEN}New baseline recorded: ${YELLOW}${total} GB${NC}"
 }
   
 record_baseline_manual() {
-  read -rp "Enter manual baseline (in GB): " input
-  [[ -z "$input" ]] && echo -e "${RED}No value entered.${NC}" && return
+  
+  read -rp "Enter manual baseline total (in GB): " input
+  [[ -z "$input" ]] && echo -e "${RED}No value entered.${NC}" && return  
+  # set main baseline data
+  local total_rx=0 total_tx=0
   local TIME=$(date '+%Y-%m-%d %H:%M')
   {
-  echo "BASE_TOTAL=$(round2 "$input")"
-  echo "RECORDED_TIME=\"$TIME\""
+    echo "BASE_RX=\"$total_rx\""
+	echo "BASE_TX=\"$total_tx\""
+    echo "BASE_TOTAL=$(round2 "$input")"
+    echo "RECORDED_TIME=\"$TIME\""
   } > "$DATA_FILE"
-  echo "$TIME | Manual | $input GB" >> "$BASELINE_LOG"
+  # update baseline log
+  echo "$TIME | Auto | $total_rx GB" | $total_tx GB" | $total GB" >> "$BASELINE_LOG"
+  
   echo -e "${GREEN}Manual baseline set to ${YELLOW}${input} GB${NC}"
 }
 
@@ -256,13 +266,27 @@ select_baseline_from_log() {
   read -rp "Select baseline number: " choice
   line=$(tac "$BASELINE_LOG" | sed -n "${choice}p")
   [[ -z "$line" ]] && echo -e "${RED}Invalid selection.${NC}" && return
-  value=$(echo "$line" | awk '{print $(NF-1)}')
-  time=$(echo "$line" | awk '{print $1" "$2}')
+  
+  # Parse baseline values from the input line
+  baseline_rx_value=$(echo "$line" | awk '{print $1}')    # adjust field positions as needed
+  baseline_tx_value=$(echo "$line" | awk '{print $2}')
+  baseline_total_value=$(echo "$line" | awk '{print $3}')
+  baseline_time=$(echo "$line" | awk '{print $4" "$5}')   # assumes date and time fields
+
+  # Write baseline data to file
   {
-  echo "BASE_TOTAL=$(round2 "$input")"
-  echo "RECORDED_TIME=\"$TIME\""
+    echo "BASE_RX=$(round2 "$baseline_rx_value")"
+    echo "BASE_TX=$(round2 "$baseline_tx_value")"
+    echo "BASE_TOTAL=$(round2 "$baseline_total_value")"
+    echo "RECORDED_TIME=\"$baseline_time\""
   } > "$DATA_FILE"
-  echo -e "${GREEN}Selected baseline: ${YELLOW}${value} GB${NC} (${time})"
+
+  # Display confirmation
+  echo -e "${GREEN}Selected"
+  echo -e "${GREEN}Baseline RX/Download: ${YELLOW}${baseline_rx_value} GB${NC}"
+  echo -e "${GREEN}Baseline TX/Upload: ${YELLOW}${baseline_tx_value} GB${NC}"
+  echo -e "${GREEN}Baseline Total: ${YELLOW}${baseline_total_value} GB${NC}"
+  echo -e "${GREEN}Timestamp: ${YELLOW}${baseline_time}${NC})"
 }
 
 baseline_menu() {
@@ -309,7 +333,7 @@ auto_traffic_menu() {
   echo "3) Enable Weekly"
   echo "4) Enable Monthly"
   echo "5) Disable"
-  echo "B) Back"
+  echo "0) Back"
   echo -e "${CYAN}──────────────────────────────────────────────${NC}"
   read -rp "Select: " x
   case "${x^^}" in
@@ -344,29 +368,79 @@ view_traffic_log() {
 # ───────────────────────────────────────────────
 show_dashboard() {
   clear
-  BASE_TOTAL=0; RECORDED_TIME="N/A"
+  # System Information
+  local HOSTNAME=$(hostname)
+  local OS=$(lsb_release -ds 2>/dev/null || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+  local KERNEL=$(uname -r)
+  local CPU=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | xargs)
+  local CORES=$(nproc)
+  local MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
+  local MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
+  local DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
+  local DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
+  local LOAD=$(uptime | awk -F'load average:' '{print $2}' | xargs)
+  local IP=$(hostname -I | awk '{print $1}')
+  
+  # Data Information
+  BASE_TOTAL=0; BASE_RX=0; BASE_TX=0; RECORDED_TIME="N/A"
   [ -f "$DATA_FILE" ] && source "$DATA_FILE"
-
+  
+  BASE_RX=$(round2 "${BASE_RX:-0}")
+  BASE_RX_SHOW=$(format_size "$(echo "$BASE_RX" | bc)")
+  BASE_TX=$(round2 "${BASE_TX:-0}")
+  BASE_TX_SHOW=$(format_size "$(echo "$BASE_TX" | bc)")
+  BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")  
+  BASE_TOTAL_SHOW=$(format_size "$(echo "$BASE_TOTAL" | bc)")
+  
   read RX_GB TX_GB TOTAL_GB < <(get_vnstat_data)
-  BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
+  
+  RX_GB_SHOW=$(format_size "$RX_GB")
+  TX_GB_SHOW=$(format_size "$TX_GB")
+  TOTAL_GB_SHOW=$(format_size "$TOTAL_GB")
+  
+  RX_SUM=$(echo "scale=6; $BASE_RX + $RX_GB" | bc)
+  RX_SUM=$(round2 "$RX_SUM")
+  RX_SUM_SHOW=$(format_size "$RX_SUM")
+  TX_SUM=$(echo "scale=6; $BASE_TX + $TX_GB" | bc)
+  TX_SUM=$(round2 "$TX_SUM")
+  TX_SUM_SHOW=$(format_size "$TX_SUM")
   TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $TOTAL_GB" | bc)
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
+  TOTAL_SUM_SHOW=$(format_size "$TOTAL_SUM")
 
   echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BLUE}       🌐 VNSTAT HELPER v${VERSION}   |   vnStat v$(vnstat --version | awk '{print $2}') ${NC}"
-  echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+  echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"    
+  echo -e "${YELLOW}Hostname:${NC}        $HOSTNAME"
+  echo -e "${YELLOW}OS:${NC}              $OS"
+  echo -e "${YELLOW}Kernel:${NC}          $KERNEL"
+  echo -e "${YELLOW}CPU:${NC}             $CPU ($CORES cores)"
+  echo -e "${YELLOW}Memory:${NC}          ${MEM_USED}MB / ${MEM_TOTAL}MB"
+  echo -e "${YELLOW}Disk:${NC}            ${DISK_USED} / ${DISK_TOTAL}"
+  echo -e "${YELLOW}Load Average:${NC}    $LOAD"
+  echo -e "${YELLOW}IP Address:${NC}      $IP"
+  echo -e "${YELLOW}IP Address:${NC}      $IP"
+  echo -e "${CYAN}────────────────────────────────────────────────────${NC}"    
   printf "${MAGENTA} %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
     "Boot Time:" "$(who -b | awk '{print $3, $4}')" "Interfaces:" "$(detect_ifaces)"
   printf "${MAGENTA} %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
     "Server Time:" "$(date '+%Y-%m-%d %H:%M')" "Uptime:" "$(fmt_uptime)"
+  # echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
+  # printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
+  # echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
+  # printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL" | bc)")" "$RECORDED_TIME"
+  # printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  # printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  # printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  # echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"  
   echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
-  printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
+  printf "${YELLOW} %-15s %-15s %-15s %-15s ${NC}\n" "Type" "RX/DL" "TX/UL" "Total" "Timestamp"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL" | bc)")" "$RECORDED_TIME"
-  printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_GB")" "$(date '+%Y-%m-%d %H:%M')"
-  printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_GB")" "$(date '+%Y-%m-%d %H:%M')"
-  printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  printf " %-15s %-15s %-15s %-15s\n" "Baseline" "$BASE_RX_SHOW" "$BASE_TX_SHOW" "$BASE_TOTAL_SHOW" "$RECORDED_TIME"
+  printf " %-15s %-15s %-15s %-15s\n" "vnStat" "$RX_GB_SHOW" "$TX_GB_SHOW" "$TOTAL_GB_SHOW" "$(date '+%Y-%m-%d %H:%M')"
+  printf " %-15s %-15s %-15s %-15s\n" "SUM" "$RX_SUM_SHOW" "$TX_SUM_SHOW" "$TOTAL_SUM_SHOW"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
+  
 }
 
 # ───────────────────────────────────────────────
