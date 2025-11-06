@@ -1,6 +1,6 @@
 # !/bin/bash 
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-# Version: 2.8.0
+# Version: 2.8.63
 
 set -euo pipefail
 
