@@ -7,7 +7,7 @@ set -euo pipefail
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.62"
+VERSION="2.8.63"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -150,20 +150,16 @@ get_vnstat_data() {
     case "$rx_unit" in
       KiB|kib) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
       MiB|mib) RX_GB=$(echo "scale=6; $rx_val/1024" | bc) ;;
-      GiB|gib|G|Gi) RX_GB=$(echo "$rx_val") ;;
-      TiB|tib|T|Ti) RX_GB=$(echo "$rx_val") ;;
-      # GiB|gib|G|Gi) RX_GB=$(echo "scale=6; $rx_val*1.07374" | bc) ;;
-      # TiB|tib|T|Ti) RX_GB=$(echo "scale=6; $rx_val*1024*1.07374" | bc) ;;
+      GiB|gib|G|Gi) RX_GB=$(echo "scale=6; $rx_val" | bc) ;;
+      TiB|tib|T|Ti) RX_GB=$(echo "scale=6; $rx_val*1024" | bc) ;;
       *) RX_GB=$(echo "scale=6; $rx_val/1024/1024" | bc) ;;
     esac
 
     case "$tx_unit" in
       KiB|kib) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
       MiB|mib) TX_GB=$(echo "scale=6; $tx_val/1024" | bc) ;;
-      GiB|gib|G|Gi) TX_GB=$(echo "$tx_val") ;;
-      TiB|tib|T|Ti) TX_GB=$(echo "$tx_val") ;;
-      # GiB|gib|G|Gi) TX_GB=$(echo "scale=6; $tx_val*1.07374" | bc) ;;
-      # TiB|tib|T|Ti) TX_GB=$(echo "scale=6; $tx_val*1024*1.07374" | bc) ;;
+      GiB|gib|G|Gi) TX_GB=$(echo "scale=6; $tx_val" | bc) ;;
+      TiB|tib|T|Ti) TX_GB=$(echo "scale=6; $tx_val*1024" | bc) ;;
       *) TX_GB=$(echo "scale=6; $tx_val/1024/1024" | bc) ;;
     esac
 
@@ -216,20 +212,36 @@ vnstat_functions_menu() {
 # BASELINE MANAGEMENT
 # ───────────────────────────────────────────────
 record_baseline_auto() {
-  local total=$(get_vnstat_data | awk '{print ($3/1024)}')
-  local TIME=$(date '+%Y-%m-%d %H:%M')
-  echo "BASE_TOTAL=$(round2 "$total")" > "$DATA_FILE"
-  echo "RECORDED_TIME=\"$TIME\"" >> "$DATA_FILE"
+  # check baseline data from system
+  local total_rx=0 total_tx=0
+  for iface in $(ip -br link show | awk '{print $1}' | grep -E '^e|^en|^eth|^wlan'); do
+    read RX TX <<<$(ip -s link show "$iface" | awk '/RX:/{getline;rx=$1} /TX:/{getline;tx=$1} END{print rx,tx}')
+    RX_GB=$(echo "scale=6; $RX/1024/1024/1024" | bc)
+    TX_GB=$(echo "scale=6; $TX/1024/1024/1024" | bc)
+    total_rx=$(echo "$total_rx + $RX_GB" | bc)
+    total_tx=$(echo "$total_tx + $TX_GB" | bc)
+  done
+  # record baseline data to file
+  total=$(echo "$total_rx + $total_tx" | bc)
+  local TIME=$(date '+%Y-%m-%d %H:%M')  
+  {
+    echo "BASE_RX=$(round2 "$total_rx")"
+	echo "BASE_TX=$(round2 "$total_tx")"
+	echo "BASE_TOTAL=$(round2 "$total")"
+	echo "RECORDED_TIME=\"$TIME\""
+  } > "$DATA_FILE"
   echo "$TIME | Auto | $total GB" >> "$BASELINE_LOG"
   echo -e "${GREEN}New baseline recorded: ${YELLOW}${total} GB${NC}"
 }
-
+  
 record_baseline_manual() {
   read -rp "Enter manual baseline (in GB): " input
   [[ -z "$input" ]] && echo -e "${RED}No value entered.${NC}" && return
   local TIME=$(date '+%Y-%m-%d %H:%M')
-  echo "BASE_TOTAL=$(round2 "$input")" > "$DATA_FILE"
-  echo "RECORDED_TIME=\"$TIME\"" >> "$DATA_FILE"
+  {
+  echo "BASE_TOTAL=$(round2 "$input")"
+  echo "RECORDED_TIME=\"$TIME\""
+  } > "$DATA_FILE"
   echo "$TIME | Manual | $input GB" >> "$BASELINE_LOG"
   echo -e "${GREEN}Manual baseline set to ${YELLOW}${input} GB${NC}"
 }
