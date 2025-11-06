@@ -1,13 +1,13 @@
 # !/bin/bash
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-# Version: 2.8.8
+# Version: 2.8.0
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.8"
+VERSION="2.8.7"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
@@ -434,11 +434,11 @@ show_dashboard() {
   # printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_GB")" "$(date '+%Y-%m-%d %H:%M')"
   # echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"  
   echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
-  printf "${YELLOW} %-15s %-15s %-15s %-15s ${NC}\n" "Type" "RX/DL" "TX/UL" "Total" "Timestamp"
+  printf "${YELLOW} %-13s %-13s %-13s %-13s %-20s ${NC}\n" "Type" "RX/DL" "TX/UL" "Total" "Timestamp"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  printf " %-15s %-15s %-15s %-15s\n" "Baseline" "$BASE_RX_SHOW" "$BASE_TX_SHOW" "$BASE_TOTAL_SHOW" "$RECORDED_TIME"
-  printf " %-15s %-15s %-15s %-15s\n" "vnStat" "$RX_GB_SHOW" "$TX_GB_SHOW" "$TOTAL_GB_SHOW" "$(date '+%Y-%m-%d %H:%M')"
-  printf " %-15s %-15s %-15s %-15s\n" "SUM" "$RX_SUM_SHOW" "$TX_SUM_SHOW" "$TOTAL_SUM_SHOW"
+  printf " %-13s %-13s %-13s %-13s %-20s\n" "Baseline" "$BASE_RX_SHOW" "$BASE_TX_SHOW" "$BASE_TOTAL_SHOW" "$RECORDED_TIME"
+  printf " %-13s %-13s %-13s %-13s %-20s\n" "vnStat" "$RX_GB_SHOW" "$TX_GB_SHOW" "$TOTAL_GB_SHOW" "$(date '+%Y-%m-%d %H:%M')"
+  printf " %-13s %-13s %-13s %-13s %-20s\n" "SUM" "$RX_SUM_SHOW" "$TX_SUM_SHOW" "$TOTAL_SUM_SHOW"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
   
 }
