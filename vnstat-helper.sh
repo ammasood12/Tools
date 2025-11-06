@@ -1,13 +1,13 @@
 # !/bin/bash 
 # 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-# Version: 2.8.63
+# Version: 2.8.7
 
 set -euo pipefail
 
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
-VERSION="2.8.64"
+VERSION="2.8.7"
 BASE_DIR="/root/vnstat-helper"
 SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 DATA_FILE="$BASE_DIR/baseline"
