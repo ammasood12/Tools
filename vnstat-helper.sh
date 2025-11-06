@@ -80,7 +80,7 @@ round2() { printf "%.2f" "$1"; }
 # ───────────────────────────────────────────────
 format_size() {
   local val="$1"
-  local unit="MB"
+  local unit="GB"
   [[ -z "$val" ]] && val=0
   # if (( $(echo "$val >= 1000" | bc -l) )); then
     # val=$(echo "scale=2; $val/1024" | bc)
@@ -258,8 +258,10 @@ select_baseline_from_log() {
   [[ -z "$line" ]] && echo -e "${RED}Invalid selection.${NC}" && return
   value=$(echo "$line" | awk '{print $(NF-1)}')
   time=$(echo "$line" | awk '{print $1" "$2}')
-  echo "BASE_TOTAL=$(round2 "$value")" > "$DATA_FILE"
-  echo "RECORDED_TIME=\"$time\"" >> "$DATA_FILE"
+  {
+  echo "BASE_TOTAL=$(round2 "$input")"
+  echo "RECORDED_TIME=\"$TIME\""
+  } > "$DATA_FILE"
   echo -e "${GREEN}Selected baseline: ${YELLOW}${value} GB${NC} (${time})"
 }
 
@@ -345,7 +347,7 @@ show_dashboard() {
   BASE_TOTAL=0; RECORDED_TIME="N/A"
   [ -f "$DATA_FILE" ] && source "$DATA_FILE"
 
-  read RX_MB TX_MB TOTAL_MB < <(get_vnstat_data)
+  read RX_GB TX_GB TOTAL_GB < <(get_vnstat_data)
   BASE_TOTAL=$(round2 "${BASE_TOTAL:-0}")
   TOTAL_SUM=$(echo "scale=6; $BASE_TOTAL + $TOTAL_MB" | bc)
   TOTAL_SUM=$(round2 "$TOTAL_SUM")
@@ -360,10 +362,10 @@ show_dashboard() {
   echo -e "${CYAN} ─────────────────────────────────────────────────────────${NC}"
   printf "${YELLOW} %-26s %-15s %-20s ${NC}\n" "Type" "Value" "Timestamp"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
-  printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL*1024" | bc)")" "$RECORDED_TIME"
-  printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_MB")" "$(date '+%Y-%m-%d %H:%M')"
-  printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_MB")" "$(date '+%Y-%m-%d %H:%M')"
-  printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_MB")" "$(date '+%Y-%m-%d %H:%M')"
+  printf " %-26s %-15s %-20s\n" "Baseline (before vnStat)" "$(format_size "$(echo "$BASE_TOTAL" | bc)")" "$RECORDED_TIME"
+  printf " %-26s %-15s %-20s\n" "vnStat (download)" "$(format_size "$RX_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  printf " %-26s %-15s %-20s\n" "vnStat (upload)" "$(format_size "$TX_GB")" "$(date '+%Y-%m-%d %H:%M')"
+  printf "${RED} %-26s %-15s %-20s${NC}\n" "Total (all interfaces)" "$(format_size "$TOTAL_GB")" "$(date '+%Y-%m-%d %H:%M')"
   echo -e "${CYAN} ────────────────────────────────────────────────────────${NC}"
 }
 
