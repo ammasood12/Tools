@@ -1,4 +1,4 @@
-#!/bin/bash
+# !/bin/bash
 # ============================================================
 # 🌐  Network Diagnostic & Optimization Tool for Ubuntu/Debian
 # ============================================================
@@ -217,4 +217,5 @@ while true; do
     *) echo -e "${RED}Invalid option!${NC}" ;;
   esac
 done
+
 
