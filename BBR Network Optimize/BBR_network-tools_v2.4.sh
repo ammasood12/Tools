@@ -7,7 +7,7 @@
 #   • BBR/BBR2 + fq_codel + UDP/QUIC optimization
 #   • Network tests (ping / speed / traceroute)
 #   • Restore backups
-#   • Logging + color output
+#   • Logging + color output s
 # ============================================================
 version="v2.4"
 # ---------- Colors ----------
@@ -217,3 +217,4 @@ while true; do
     *) echo -e "${RED}Invalid option!${NC}" ;;
   esac
 done
+
