@@ -1,13 +1,13 @@
 	# !/bin/bash
 	# 🌐 VNSTAT HELPER — Multi-Interface & Oneline Edition
-	# Version: 2.8.0
+	# Version: 2.8.9
 
 	set -euo pipefail
 
 	# ───────────────────────────────────────────────
 	# CONFIGURATION
 	# ───────────────────────────────────────────────
-	VERSION="2.8.8"
+	VERSION="2.8.9"
 	BASE_DIR="/root/vnstat-helper"
 	SELF_PATH="$BASE_DIR/vnstat-helper.sh"
 	DATA_FILE="$BASE_DIR/baseline"
@@ -412,7 +412,7 @@
 	  printf "${MAGENTA} %-13s${NC} %-19s ${MAGENTA}%-12s${NC} %s\n" \
 		"Server Time:" "$(date '+%Y-%m-%d %H:%M')" "Uptime:" "$(fmt_uptime)"
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
-	  printf "${YELLOW} %-10s %-10s %-10s %-10s %-20s ${NC}\n" "Type" "RX/DL" "TX/UL" "Total" "Timestamp"
+	  printf "${YELLOW} %-10s %-10s %-10s %-10s %-20s ${NC}\n" "Type" "RX/UL" "TX/DL" "Total" "Timestamp"
 	  echo -e "${CYAN} ────────────────────────────────────────────────────────────${NC}"
 	  printf " %-10s %-10s %-10s %-10s %-20s\n" "Baseline" "$BASE_RX_SHOW" "$BASE_TX_SHOW" "$BASE_TOTAL_SHOW" "$RECORDED_TIME"
 	  printf " %-10s %-10s %-10s %-10s %-20s\n" "vnStat" "$RX_GB_SHOW" "$TX_GB_SHOW" "$TOTAL_GB_SHOW" "$(date '+%Y-%m-%d %H:%M')"
