@@ -1,4 +1,4 @@
-#!/bin/bash
+# !/bin/bash
 # ============================================================
 # 🌐  Network Diagnostic & Optimization Tool for Ubuntu/Debian
 # ============================================================
@@ -106,22 +106,19 @@ apply_optimization() {
 
   echo -e "\n${YELLOW}>>> Applying optimization settings...${NC}"
   cat <<EOF > /etc/sysctl.conf
+# based on sysctl-General-v03.conf file
 # ============================================================
 # Universal sysctl.conf for VPS (Generalized, Safe Everywhere)
 # Works on: DigitalOcean, Vultr, Linode, AWS, Hetzner, OVH,
 # Tencent, Alibaba, Oracle, RackNerd, Mikrotik CHR, etc.
-# based on sysctl-General-v03.conf file
-# ------------------------------------------------------------
-# V2bX / Sing-box / Xray Network Optimization
-# BBR + fq_codel + UDP/QUIC Enhanced
-# Updated: $version
-# Updated: $(date +%Y%m%d-%H%M%S)
+# version: v03
 # ============================================================
 
 ######## Core Network Optimization ########
 net.core.default_qdisc = fq_codel
 net.ipv4.tcp_congestion_control = bbr
 
+######## Connection Stability ########
 ######## TCP Stability & Handshake ########
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_slow_start_after_idle = 0
@@ -131,7 +128,10 @@ net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 30
 net.ipv4.tcp_keepalive_probes = 5
 
-######## MTU Auto-Adjustment (Best for global routing) ########
+######## MTU & RTT Optimization ########
+######## MTU Auto-Adjustment ########
+######## (Best for global routing) ########
+# changed from 1 to 2
 net.ipv4.tcp_mtu_probing = 2
 
 ######## TCP Buffers ########
@@ -151,6 +151,7 @@ net.ipv4.udp_wmem_min = 32768
 net.core.netdev_budget = 600
 net.core.netdev_budget_usecs = 5000
 
+######## Performance & Stability ########
 ######## Queue / Backlog ########
 net.core.somaxconn = 4096
 net.core.netdev_max_backlog = 16384
@@ -164,6 +165,7 @@ net.ipv4.tcp_syncookies = 1
 
 ######## Routing ########
 net.ipv4.ip_forward = 1
+######## Anti-Route Conflicts ########
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
 
