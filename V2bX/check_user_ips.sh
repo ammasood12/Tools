@@ -4,6 +4,8 @@
 # Improved detection and violation scoring with detailed overlap analysis
 # ==========================================
 
+VERSION="v4.0.1"
+
 # ---------------------------
 # Color codes for output
 # ---------------------------
@@ -18,6 +20,8 @@ NC='\033[0m' # No Color
 # ---------------------------
 # Select log period
 # ---------------------------
+echo -e "${PURPLE}Check Users IP on Node $VERSION ${NC}"
+echo
 echo -e "${CYAN}Select log period to scan:${NC}"
 echo -e " 1) Last 1 hour"
 echo -e " 2) Last 1 day" 
@@ -218,7 +222,7 @@ echo
 echo -e "${GREEN}✅ Found $unique_sessions sessions ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-3s %-35s | %-20s | %s\n" "#" "Time Range (Duration)" "IP (Connections)" "Location (ISP)"
+printf "%-8s %-35s | %-20s | %s\n" "RecordID" "Time Range (Duration)" "IP (Connections)" "Location (ISP)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
