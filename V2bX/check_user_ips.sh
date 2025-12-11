@@ -6,7 +6,7 @@
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.4"
+VERSION="v5.0.2"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -85,6 +85,12 @@ human_date() {
   local epoch="$1"
   date -d "@${epoch}" +"%Y-%m-%d %H:%M:%S"
 }
+
+fmt_ts() {
+    local iso="$1"
+    date -d "$iso" +"%Y-%m-%d %H:%M:%S"
+}
+
 
 pause() {
   echo
@@ -418,7 +424,7 @@ show_session_table() {
       # "$i" "$ip" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
 	loc=$(get_ip_location_short "$ip")
 	printf "%-3s %-16s %-25s %-20s %-20s %-8s %-10s\n" \
-      "$i" "$ip" "$loc" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
+      "$i" "$ip" "$loc" "$(fmt_ts "$first_ts")" "$(fmt_ts "$last_ts")" "$cnt" "$(human_time "$dur")"
   done
 }
 
