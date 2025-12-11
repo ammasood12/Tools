@@ -240,7 +240,7 @@ echo
 echo -e "${GREEN}✅ Found $unique_sessions sessions ($total_connections total connections)${NC}"
 echo -e "${YELLOW}📝 Note: Showing only sessions ≥ 5 minutes duration${NC}"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
-printf "%-8s %-35s | %-20s | %s\n" "#" "Time Range (Duration)" "IP (Connections)" "Location (ISP)"
+printf "%-3s %-35s | %-20s | %s\n" "#" "Time Range (Duration)" "IP (Connections)" "Location (ISP)"
 echo -e "${BLUE}-----------------------------------------------------------------${NC}"
 
 # Create sessions array file
