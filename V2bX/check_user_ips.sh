@@ -343,9 +343,13 @@ score_violation() {
 
 show_session_table() {
   echo
-  echo -e "${CYAN}════════ User IP Session Summary ════════${NC}"
+  echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}${BOLD}                           User IP Session Summary ${NC}"
+  echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
+  
   printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
-  echo -e "${BLUE}-------------------------------------------------------------------------------${NC}"
+  echo -e "${BLUE}----------------------------------------------------------------------------------${NC}"
+  echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 
   local i=0
   sort -t"|" -k4,4n "$TMP_SESSIONS" | while IFS="|" read -r ip first_ts last_ts first_ep last_ep cnt; do
@@ -364,9 +368,11 @@ show_overlap_table() {
   fi
 
   echo
-  echo -e "${CYAN}════════ Overlapping Session Windows (Parallel IP Usage) ════════${NC}"
+  echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}${BOLD}               Overlapping Session Windows (Parallel IP Usage) ${NC}"
+  echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   printf "%-3s %-20s %-20s %-10s %-s\n" "#" "Start" "End" "Duration" "IPs"
-  echo -e "${BLUE}-------------------------------------------------------------------------------${NC}"
+  echo -e "${BLUE}----------------------------------------------------------------------------------${NC}"
 
   local i=0
   sort -t"|" -k1,1n "$TMP_OVERLAPS" | while IFS="|" read -r start_ep end_ep ip_list; do
