@@ -6,7 +6,7 @@
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.1"
+VERSION="v5.0.2"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -197,33 +197,30 @@ parse_events() {
 
   # Using gawk for robust parsing
   gawk '
-  {
-    # Timestamp: first two fields "YYYY/MM/DD HH:MM:SS.micro"
-    ts = $1 " " $2
-    # Strip microseconds for date -d compatibility
-    gsub(/\.[0-9]+$/, "", ts)
+{
+    # Extract timestamp only if it exists at the beginning of the line
+    if (match($0, /^[0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9:.]+/)) {
+        ts = substr($0, RSTART, RLENGTH)
+        gsub(/\.[0-9]+$/, "", ts)
+    } else {
+        next
+    }
 
-    # Extract IP after "from "
-    # Patterns: 
-    #  - from 1.2.3.4:12345
-    #  - from tcp:1.2.3.4:12345
-    #  - from tcp:[2a03:2880:...]:443
+    # Extract IP
     match($0, /from (tcp:)?(\[[0-9a-fA-F:.]+\]|[0-9.]+):[0-9]+/, m)
     ip = m[2]
-    gsub(/\[|\]/, "", ip)  # strip [] for IPv6
+    gsub(/\[|\]/, "", ip)
 
     if (ip == "") next
 
-    # Get epoch via system date
+    # Convert timestamp → epoch
     cmd = "date -d \"" ts "\" +%s"
     cmd | getline epoch
     close(cmd)
 
-    if (epoch == "") next
-
-    # Save raw line for debugging if needed
     print ts "|" epoch "|" ip "|" $0
-  }' "$TMP_RAW" > "$TMP_EVENTS"
+}' "$TMP_RAW" > "$TMP_EVENTS"
+
 
   local count
   count=$(wc -l < "$TMP_EVENTS")
