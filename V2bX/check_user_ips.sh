@@ -4,7 +4,7 @@
 # Improved detection and violation scoring with detailed overlap analysis
 # ==========================================
 
-VERSION="v4.0.2"
+VERSION="v4.0.3"
 # Always use gawk instead of awk
 AWK_BIN="gawk"
 
@@ -22,6 +22,7 @@ NC='\033[0m' # No Color
 # ---------------------------
 # Check and install dependencies only if needed
 # ---------------------------
+echo
 echo -e "${CYAN}📦 Checking dependencies...${NC}"
 
 check_and_install() {
@@ -42,11 +43,9 @@ check_and_install gawk
 # Select log period
 # ---------------------------
 echo
-echo
 echo -e "${BOLD}${PURPLE}╔═════════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}${PURPLE}       Check Users IP on Node ${VERSION}       ${RESET}"
 echo -e "${BOLD}${PURPLE}╚═════════════════════════════════════════════╝${RESET}"
-echo
 echo
 echo -e "${CYAN}Select log period to scan:${NC}"
 echo -e " 1) Last 1 hour"
@@ -83,13 +82,22 @@ location_cache_file="/tmp/ip_locations.txt"
 # ---------------------------
 if [ -n "$period" ]; then
     journalctl -u V2bX --since "$period" -o cat | grep "$uuid" \
-    | $AWK_BIN '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    | $AWK_BIN '{
+        match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1];
+        match($0,/[0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9:.]+/,b); ts=b[0];
+        if (ip != "") print ts "|" ip;
+    }' \
     > "$tmpfile"
 else
     journalctl -u V2bX -o cat | grep "$uuid" \
-    | $AWK_BIN '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    | $AWK_BIN '{
+        match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1];
+        match($0,/[0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9:.]+/,b); ts=b[0];
+        if (ip != "") print ts "|" ip;
+    }' \
     > "$tmpfile"
 fi
+
 
 total_connections=$(wc -l < "$tmpfile")
 if [ "$total_connections" -eq 0 ]; then
