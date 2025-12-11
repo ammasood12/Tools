@@ -20,7 +20,12 @@ NC='\033[0m' # No Color
 # ---------------------------
 # Select log period
 # ---------------------------
-echo -e "${PURPLE}Check Users IP on Node $VERSION ${NC}"
+echo
+echo
+echo -e "${BOLD}${PURPLE}╔═════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${PURPLE}       Check Users IP on Node ${VERSION}       ${RESET}"
+echo -e "${BOLD}${PURPLE}╚═════════════════════════════════════════════╝${RESET}"
+echo
 echo
 echo -e "${CYAN}Select log period to scan:${NC}"
 echo -e " 1) Last 1 hour"
