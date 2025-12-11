@@ -4,7 +4,7 @@
 # Improved detection and violation scoring with detailed overlap analysis
 # ==========================================
 
-VERSION="v4.0.1"
+VERSION="v4.0.2"
 
 # ---------------------------
 # Color codes for output
@@ -16,6 +16,9 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
+
+# Always use gawk instead of awk
+AWK_BIN="gawk"
 
 # ---------------------------
 # Select log period
@@ -62,11 +65,11 @@ location_cache_file="/tmp/ip_locations.txt"
 # ---------------------------
 if [ -n "$period" ]; then
     journalctl -u V2bX --since "$period" -o cat | grep "$uuid" \
-    | awk '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    | $AWK_BIN '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
     > "$tmpfile"
 else
     journalctl -u V2bX -o cat | grep "$uuid" \
-    | awk '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
+    | $AWK_BIN '{match($0,/from ([0-9.:]+):[0-9]+/,a); ip=a[1]; match($0,/^[0-9\/]+ [0-9:.]+/,b); ts=b[0]; if(ip!="") print ts "|" ip}' \
     > "$tmpfile"
 fi
 
@@ -106,7 +109,7 @@ calculate_duration() {
 filtered_logfile="/tmp/user_sessions_filtered.txt"
 > "$filtered_logfile"
 
-sort "$tmpfile" | awk -F'|' '{
+sort "$tmpfile" | $AWK_BIN -F'|' '{
   count[$2]++;
   if(!start[$2]) start[$2]=$1;
   end[$2]=$1;
@@ -116,7 +119,7 @@ sort "$tmpfile" | awk -F'|' '{
   }
 }' | while IFS='|' read -r count ip start_time end_time; do
     duration=$(calculate_duration "$start_time" "$end_time")
-    duration_seconds=$(echo "$duration" | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
+    duration_seconds=$(echo "$duration" | $AWK_BIN -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
     # Only include sessions with duration >= 5 minutes (300 seconds)
     if [ "$duration_seconds" -ge 300 ]; then
         echo "$count|$ip|$start_time|$end_time|$duration" >> "$filtered_logfile"
@@ -149,6 +152,7 @@ check_and_install() {
 
 check_and_install curl
 check_and_install jq
+check_and_install gawk
 
 # ---------------------------
 # Enhanced IP Location Function with ISP Detection
