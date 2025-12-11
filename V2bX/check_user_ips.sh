@@ -6,7 +6,7 @@
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.2"
+VERSION="v5.0.3"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -195,42 +195,59 @@ parse_events() {
   echo -e "${CYAN}🧩 Parsing log lines into events (timestamp + IP)...${NC}"
   : > "$TMP_EVENTS"
 
-  # Using gawk for robust parsing
-  gawk '
-{
-    # Extract timestamp only if it exists at the beginning of the line
-    if (match($0, /^[0-9]{4}\/[0-9]{2}\/[0-9]{2} [0-9:.]+/)) {
-        ts = substr($0, RSTART, RLENGTH)
-        gsub(/\.[0-9]+$/, "", ts)
-    } else {
-        next
-    }
+  journalctl ${JOURNAL_UNIT} -o short-iso --since "$PERIOD" | grep -F "$UUID" > "$TMP_RAW"
 
-    # Extract IP
-    match($0, /from (tcp:)?(\[[0-9a-fA-F:.]+\]|[0-9.]+):[0-9]+/, m)
-    ip = m[2]
-    gsub(/\[|\]/, "", ip)
+  gawk -v uuid="$UUID" -F' ' '
+  {
+      # Journald timestamp fields:
+      # $1 = 2025-12-11T22:23:24+00:00
+      # $2 = hostname
+      # $3 = V2bX[PID]:
+      # $4..end = actual V2bX log message
 
-    if (ip == "") next
+      # Validate timestamp format
+      if ($1 !~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}T/) {
+          next
+      }
 
-    # Convert timestamp → epoch
-    cmd = "date -d \"" ts "\" +%s"
-    cmd | getline epoch
-    close(cmd)
+      iso_ts = $1
 
-    print ts "|" epoch "|" ip "|" $0
-}' "$TMP_RAW" > "$TMP_EVENTS"
+      # Convert journald ISO timestamp → epoch
+      cmd = "date -d \"" iso_ts "\" +%s"
+      cmd | getline epoch
+      close(cmd)
 
+      # Reconstruct V2bX message (everything after the prefix)
+      msg=""
+      for (i=4; i<=NF; i++)
+          msg = msg $i " "
+
+      # Extract IP from "from <IP>:<port>"
+      match(msg, /from (tcp:)?(\[[0-9a-fA-F:.]+\]|[0-9.]+):[0-9]+/, m)
+      ip = m[2]
+
+      # No IP? skip
+      if (ip == "")
+          next
+
+      gsub(/\[|\]/, "", ip)
+
+      # Write event entry:
+      # iso_timestamp | epoch_seconds | ip | raw message
+      print iso_ts "|" epoch "|" ip "|" msg
+  }' "$TMP_RAW" > "$TMP_EVENTS"
 
   local count
   count=$(wc -l < "$TMP_EVENTS")
+
   if [[ "$count" -eq 0 ]]; then
-    echo -e "${YELLOW}⚠️ Parsed 0 events. Check date format or log format.${NC}"
+    echo -e "${YELLOW}⚠️ Parsed 0 events. Logs may not contain this UUID.${NC}"
     exit 0
   fi
 
   echo -e "${GREEN}✅ Parsed ${count} events for this UUID.${NC}"
 }
+
 
 build_sessions() {
   echo -e "${CYAN}🧮 Building per-IP sessions (first seen / last seen / count)...${NC}"
