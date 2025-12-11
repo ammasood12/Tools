@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================
 # V2bX User IP & Device Analyzer (Journald-based)
-# Version: v5.0.2
+# Version: v5.0.1
 # Purpose: Detect how many IPs/devices a single UUID uses,
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.2"
+VERSION="v5.0.1"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -394,7 +394,7 @@ show_session_table() {
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
   # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
-  printf "%-3s %-18s %-18s %-20s %-20s %-10s\n" "#" "IP (Count)" "Location" "First Seen" "Last Seen" "Duration"
+  printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
   echo -e "${BLUE}----------------------------------------------------------------------------------${NC}"
   # echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 
@@ -405,8 +405,8 @@ show_session_table() {
     # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" \
       # "$i" "$ip" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
 	loc=$(get_ip_location_short "$ip")
-	printf "%-3s %-18s %-18s %-20s %-20s %-10s\n" \
-      "$i" "$ip ($cnt)" "$loc" "$first_ts" "$last_ts" "$(human_time "$dur")"
+	printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" \
+      "$i" "$ip" "$loc" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
   done
 }
 
