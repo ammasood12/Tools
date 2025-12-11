@@ -5,6 +5,8 @@
 # ==========================================
 
 VERSION="v4.0.2"
+# Always use gawk instead of awk
+AWK_BIN="gawk"
 
 # ---------------------------
 # Color codes for output
@@ -17,8 +19,24 @@ CYAN='\033[0;36m'
 PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
-# Always use gawk instead of awk
-AWK_BIN="gawk"
+# ---------------------------
+# Check and install dependencies only if needed
+# ---------------------------
+echo -e "${CYAN}📦 Checking dependencies...${NC}"
+
+check_and_install() {
+    local package=$1
+    if ! command -v "$package" &> /dev/null; then
+        echo -e "${YELLOW}Installing $package...${NC}"
+        apt install -y "$package" > /dev/null 2>&1
+    else
+        echo -e "${GREEN}✓ $package already installed${NC}"
+    fi
+}
+
+check_and_install curl
+check_and_install jq
+check_and_install gawk
 
 # ---------------------------
 # Select log period
@@ -135,24 +153,7 @@ if [ "$unique_ips" -eq 0 ]; then
   exit 0
 fi
 
-# ---------------------------
-# Check and install dependencies only if needed
-# ---------------------------
-echo -e "${CYAN}📦 Checking dependencies...${NC}"
 
-check_and_install() {
-    local package=$1
-    if ! command -v "$package" &> /dev/null; then
-        echo -e "${YELLOW}Installing $package...${NC}"
-        apt install -y "$package" > /dev/null 2>&1
-    else
-        echo -e "${GREEN}✓ $package already installed${NC}"
-    fi
-}
-
-check_and_install curl
-check_and_install jq
-check_and_install gawk
 
 # ---------------------------
 # Enhanced IP Location Function with ISP Detection
