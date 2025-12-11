@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================
 # V2bX User IP & Device Analyzer (Journald-based)
-# Version: v5.0.0
+# Version: v5.0.1
 # Purpose: Detect how many IPs/devices a single UUID uses,
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.0"
+VERSION="v5.0.1"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -32,6 +32,8 @@ TMP_EVENTS="/tmp/v2bx_user_events.txt"       # ts|epoch|ip|raw
 TMP_SESSIONS="/tmp/v2bx_user_sessions.txt"   # ip|first_ts|last_ts|first_epoch|last_epoch|count
 TMP_OVERLAPS="/tmp/v2bx_user_overlaps.txt"   # start_epoch|end_epoch|ip_list
 TMP_RAW="/tmp/v2bx_user_raw.txt"
+
+declare -A IP_LOCATION_CACHE
 
 # ============================================================
 # Utility Functions
@@ -87,6 +89,50 @@ human_date() {
 pause() {
   echo
   read -rp "Press Enter to continue..." _
+}
+
+get_ip_location_short() {
+    local ip=$1
+    local short_location=""
+
+    if [[ -n "${IP_LOCATION_CACHE[$ip]:-}" ]]; then
+        echo "${IP_LOCATION_CACHE[$ip]}"
+        return
+    fi
+
+    if response=$(curl -s -m 5 "http://ip-api.com/json/$ip?fields=status,countryCode,city,isp,org" 2>/dev/null); then
+        if echo "$response" | jq -e . >/dev/null 2>&1; then
+            if echo "$response" | jq -e '.status == "success"' >/dev/null 2>&1; then
+                city=$(echo "$response" | jq -r '.city // empty')
+                country_code=$(echo "$response" | jq -r '.countryCode // empty')
+                isp=$(echo "$response" | jq -r '.isp // empty')
+
+                short_city=$(echo "$city" | cut -d' ' -f1 | cut -c1-9 | sed 's/[^a-zA-Z]//g')
+
+                local carrier=""
+                if [[ "$isp" =~ [Mm]obile ]]; then carrier="M"
+                elif [[ "$isp" =~ [Tt]elecom ]]; then carrier="T"
+                elif [[ "$isp" =~ [Uu]nicom ]]; then carrier="U"
+                elif [[ -n "$isp" ]]; then carrier="I"
+                fi
+
+                if [[ -n "$country_code" && -n "$short_city" ]]; then
+                    short_location="${country_code}-${short_city}"
+                    [[ -n "$carrier" ]] && short_location="${short_location}(${carrier})"
+                elif [[ -n "$country_code" ]]; then
+                    short_location="$country_code"
+                    [[ -n "$carrier" ]] && short_location="${short_location}(${carrier})"
+                fi
+            fi
+        fi
+    fi
+
+    if [[ "$short_location" == "" || "$short_location" == "Unknown" ]]; then
+        short_location="Unknown"
+    fi
+
+    IP_LOCATION_CACHE["$ip"]="$short_location"
+    echo "$short_location"
 }
 
 # ============================================================
@@ -347,16 +393,20 @@ show_session_table() {
   echo -e "${CYAN}${BOLD}                           User IP Session Summary ${NC}"
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
-  printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
+  # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
+  printf "%-3s %-18s %-14s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Cnt" "Dur"
   echo -e "${BLUE}----------------------------------------------------------------------------------${NC}"
-  echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+  # echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 
   local i=0
   sort -t"|" -k4,4n "$TMP_SESSIONS" | while IFS="|" read -r ip first_ts last_ts first_ep last_ep cnt; do
     i=$((i+1))
     local dur=$((last_ep - first_ep))
-    printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" \
-      "$i" "$ip" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
+    # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" \
+      # "$i" "$ip" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
+	loc=$(get_ip_location_short "$ip")
+	printf "%-3s %-18s %-14s %-20s %-20s %-8s %-10s\n" \
+      "$i" "$ip" "$loc" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
   done
 }
 
