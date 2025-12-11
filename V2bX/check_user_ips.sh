@@ -395,7 +395,7 @@ show_session_table() {
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
   # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
-  printf "%-3s %-16s %-16s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
+  printf "%-3s %-16s %-20s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
   echo -e "${BLUE}----------------------------------------------------------------------------------${NC}"
   # echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 
@@ -406,7 +406,7 @@ show_session_table() {
     # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" \
       # "$i" "$ip" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
 	loc=$(get_ip_location_short "$ip")
-	printf "%-3s %-16s %-16s %-20s %-20s %-8s %-10s\n" \
+	printf "%-3s %-16s %-20s %-20s %-20s %-8s %-10s\n" \
       "$i" "$ip" "$loc" "$first_ts" "$last_ts" "$cnt" "$(human_time "$dur")"
   done
 }
