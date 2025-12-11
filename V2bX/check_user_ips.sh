@@ -100,11 +100,12 @@ get_ip_location_short() {
         return
     fi
 
-    if response=$(curl -s -m 5 "http://ip-api.com/json/$ip?fields=status,countryCode,city,isp,org" 2>/dev/null); then
+    if response=$(curl -s -m 5 "http://ip-api.com/json/$ip?fields=status,countryCode,regionName,city,isp,org" 2>/dev/null); then
         if echo "$response" | jq -e . >/dev/null 2>&1; then
             if echo "$response" | jq -e '.status == "success"' >/dev/null 2>&1; then
                 city=$(echo "$response" | jq -r '.city // empty')
                 country_code=$(echo "$response" | jq -r '.countryCode // empty')
+                regionName=$(echo "$response" | jq -r '.regionName // empty')
                 isp=$(echo "$response" | jq -r '.isp // empty')
 
                 short_city=$(echo "$city" | cut -d' ' -f1 | cut -c1-9 | sed 's/[^a-zA-Z]//g')
@@ -117,10 +118,10 @@ get_ip_location_short() {
                 fi
 
                 if [[ -n "$country_code" && -n "$short_city" ]]; then
-                    short_location="${country_code}-${short_city}"
+                    short_location="${country_code}-${regionName}-${short_city}"
                     [[ -n "$carrier" ]] && short_location="${short_location}(${carrier})"
                 elif [[ -n "$country_code" ]]; then
-                    short_location="$country_code"
+                    short_location="${country_code}-${regionName}"
                     [[ -n "$carrier" ]] && short_location="${short_location}(${carrier})"
                 fi
             fi
