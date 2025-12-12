@@ -408,7 +408,7 @@ score_violation() {
 show_session_table() {
   echo
   echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}${BOLD}                           User IP Session Summary ${NC}"
+  echo -e "${CYAN}${BOLD}                     User IP Session Summary (${PERIOD})${NC}"
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
   # printf "%-3s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "First Seen" "Last Seen" "Count" "Duration"
