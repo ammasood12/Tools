@@ -155,7 +155,8 @@ is_cache_stale() {
         return 0  # Stale (no date)
     fi
     
-    fetched_epoch=$(date -d "$fetched_date" +%s 2>/dev/null)
+    # Try to parse date (handle different formats)
+    fetched_epoch=$(date -d "$fetched_date" +%s 2>/dev/null || date -d "$(echo "$fetched_date" | sed 's/T/ /; s/+.*//')" +%s 2>/dev/null)
     if [[ -z "$fetched_epoch" ]]; then
         return 0  # Stale (invalid date)
     fi
@@ -178,14 +179,17 @@ fetch_ip_details() {
     local ip="$1"
     local response
     local result_json
+    local fetched_date
     
     echo -e "  ${CYAN}Fetching details for IP: $ip${NC}"
+    
+    fetched_date=$(date +"%Y-%m-%d %H:%M:%S")
     
     # Try ip-api.com first (free, good for location)
     response=$(curl -s -m 10 "http://ip-api.com/json/$ip?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,reverse,proxy,hosting,query")
     
     if [[ -n "$response" ]] && echo "$response" | jq -e '.status == "success"' >/dev/null 2>&1; then
-        result_json=$(echo "$response" | jq --arg fetched "$(date +"%Y-%m-%d %H:%M:%S")" '{
+        result_json=$(echo "$response" | jq --arg fetched "$fetched_date" '{
             ip: .query,
             country: .country,
             country_code: .countryCode,
@@ -215,7 +219,7 @@ fetch_ip_details() {
     response=$(curl -s -m 10 "https://ipapi.co/$ip/json/")
     
     if [[ -n "$response" ]] && echo "$response" | jq -e '.error != true' >/dev/null 2>&1; then
-        result_json=$(echo "$response" | jq --arg fetched "$(date +"%Y-%m-%d %H:%M:%S")" '{
+        result_json=$(echo "$response" | jq --arg fetched "$fetched_date" '{
             ip: .ip,
             country: .country_name,
             country_code: .country_code,
@@ -242,7 +246,7 @@ fetch_ip_details() {
     fi
     
     # Return minimal info if both APIs fail
-    result_json=$(jq -n --arg ip "$ip" --arg fetched "$(date +"%Y-%m-%d %H:%M:%S")" '{
+    result_json=$(jq -n --arg ip "$ip" --arg fetched "$fetched_date" '{
         ip: $ip,
         country: "Unknown",
         country_code: "XX",
@@ -620,6 +624,7 @@ show_ip_details_table() {
       region=$(echo "$region" | cut -c1-12)
       city=$(echo "$city" | cut -c1-12)
       isp=$(echo "$isp" | cut -c1-22)
+      fetched_date=$(echo "$fetched_date" | cut -c1-14)
       
       printf "%-18s %-12s %-15s %-15s %-25s %-15s\n" \
         "$ip" "$country" "$region" "$city" "$isp" "$fetched_date"
@@ -682,37 +687,122 @@ show_overlap_table() {
 }
 
 # ============================================================
-# Cache Maintenance
+# Cache Maintenance (Fixed)
 # ============================================================
 
 cleanup_old_cache() {
   local cache_age_days=30
   local temp_file
   
-  if [[ ! -f "$IP_DETAILS_FILE" ]]; then
+  if [[ ! -f "$IP_DETAILS_FILE" ]] || [[ ! -s "$IP_DETAILS_FILE" ]]; then
     return
   fi
   
   echo -e "${CYAN}🧹 Checking for stale cache entries (older than ${cache_age_days} days)...${NC}"
   
+  # Create a safe cleanup function that doesn't use problematic jq filters
   temp_file=$(mktemp)
+  
+  # Get current epoch
   current_epoch=$(date +%s)
+  max_age_seconds=$((cache_age_days * 86400))
   
-  jq --argjson current "$current_epoch" --argjson max_age "$((cache_age_days * 86400))" '
-    to_entries | map(select(
-      (.value.fetched_date | type) == "string" and
-      (.value.fetched_date | fromdateiso8601? // 0) + $max_age > $current
-    )) | from_entries' "$IP_DETAILS_FILE" > "$temp_file"
+  # Process each entry manually
+  echo "{" > "$temp_file"
+  first=true
   
-  if [[ $(jq 'length' "$temp_file") -lt $(jq 'length' "$IP_DETAILS_FILE") ]]; then
+  while IFS= read -r line; do
+    if [[ "$line" =~ \"([0-9.]+)\":[[:space:]]*(\{.*\}) ]]; then
+      ip="${BASH_REMATCH[1]}"
+      json="${BASH_REMATCH[2]}"
+      
+      # Extract fetched_date from JSON
+      fetched_date=$(echo "$json" | grep -o '"fetched_date":"[^"]*"' | cut -d'"' -f4)
+      
+      if [[ -n "$fetched_date" ]]; then
+        # Convert date to epoch
+        fetched_epoch=$(date -d "$fetched_date" +%s 2>/dev/null || 
+                       date -d "$(echo "$fetched_date" | sed 's/T/ /; s/+.*//')" +%s 2>/dev/null)
+        
+        if [[ -n "$fetched_epoch" ]] && [[ $((current_epoch - fetched_epoch)) -le $max_age_seconds ]]; then
+          if [[ "$first" = true ]]; then
+            first=false
+          else
+            echo "," >> "$temp_file"
+          fi
+          echo -n "\"$ip\": $json" >> "$temp_file"
+        fi
+      fi
+    fi
+  done < <(jq -c 'to_entries[]' "$IP_DETAILS_FILE" 2>/dev/null)
+  
+  echo "" >> "$temp_file"
+  echo "}" >> "$temp_file"
+  
+  # Count entries before and after
+  original_count=$(jq 'length' "$IP_DETAILS_FILE" 2>/dev/null || echo "0")
+  new_count=$(jq 'length' "$temp_file" 2>/dev/null || echo "0")
+  
+  if [[ "$new_count" -lt "$original_count" ]]; then
     local removed
-    removed=$(( $(jq 'length' "$IP_DETAILS_FILE") - $(jq 'length' "$temp_file") ))
+    removed=$((original_count - new_count))
     mv "$temp_file" "$IP_DETAILS_FILE"
     echo -e "${GREEN}✅ Removed ${removed} stale cache entries${NC}"
   else
     rm -f "$temp_file"
     echo -e "${GREEN}✅ No stale entries found${NC}"
   fi
+}
+
+# ============================================================
+# Cache Repair Function
+# ============================================================
+
+repair_cache_file() {
+  echo -e "${YELLOW}⚠️  Cache file appears corrupted, attempting repair...${NC}"
+  
+  if [[ ! -f "$IP_DETAILS_FILE" ]]; then
+    echo "{}" > "$IP_DETAILS_FILE"
+    echo -e "${GREEN}✅ Created new cache file${NC}"
+    return
+  fi
+  
+  # Try to fix common JSON issues
+  local temp_file
+  temp_file=$(mktemp)
+  
+  # Remove any trailing commas and fix common JSON issues
+  sed -e 's/,\s*}/}/g' \
+      -e 's/,\s*]/]/g' \
+      -e 's/\([^"]\)"/\1"/g' \
+      "$IP_DETAILS_FILE" | jq . 2>/dev/null > "$temp_file"
+  
+  if jq -e . "$temp_file" >/dev/null 2>&1; then
+    mv "$temp_file" "$IP_DETAILS_FILE"
+    echo -e "${GREEN}✅ Cache file repaired successfully${NC}"
+  else
+    rm -f "$temp_file"
+    # Create fresh cache file
+    echo "{}" > "$IP_DETAILS_FILE"
+    echo -e "${YELLOW}⚠️  Could not repair, created fresh cache file${NC}"
+  fi
+}
+
+# ============================================================
+# Validate Cache File
+# ============================================================
+
+validate_cache_file() {
+  if [[ ! -f "$IP_DETAILS_FILE" ]]; then
+    return 0
+  fi
+  
+  if ! jq -e . "$IP_DETAILS_FILE" >/dev/null 2>&1; then
+    repair_cache_file
+    return 1
+  fi
+  
+  return 0
 }
 
 # ============================================================
@@ -723,6 +813,7 @@ main() {
   print_header
   ensure_dependencies
   init_ip_details_file
+  validate_cache_file
   cleanup_old_cache
   select_period
   prompt_uuid
