@@ -389,10 +389,17 @@ format_location_short() {
     local details="$1"
     local country_code city isp carrier short_city short_location
     
-    # Extract values safely
-    country_code=$(echo "$details" | grep -o '"country_code":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "XX")
-    city=$(echo "$details" | grep -o '"city":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
-    isp=$(echo "$details" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
+    # Extract values using jq if available
+    if command -v jq >/dev/null 2>&1; then
+        country_code=$(echo "$details" | jq -r '.country_code // "XX"' 2>/dev/null || echo "XX")
+        city=$(echo "$details" | jq -r '.city // ""' 2>/dev/null || echo "")
+        isp=$(echo "$details" | jq -r '.isp // ""' 2>/dev/null || echo "")
+    else
+        # Fallback to grep
+        country_code=$(echo "$details" | grep -o '"country_code":[[:space:]]*"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "XX")
+        city=$(echo "$details" | grep -o '"city":[[:space:]]*"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
+        isp=$(echo "$details" | grep -o '"isp":[[:space:]]*"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
+    fi
     
     # Default if empty
     [[ -z "$country_code" ]] && country_code="XX"
@@ -724,29 +731,38 @@ show_ip_details_table() {
     local isp="Unknown"
     local fetched_date="Unknown"
     
-    # Try to parse JSON
+    # Try to parse JSON using jq if available
     if [[ -n "$details" ]]; then
-        # Use grep for robust extraction
-        country=$(echo "$details" | grep -o '"country":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
-        region=$(echo "$details" | grep -o '"region":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
-        city=$(echo "$details" | grep -o '"city":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
-        isp=$(echo "$details" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
-        fetched_date=$(echo "$details" | grep -o '"fetched_date":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
-        
-        # Clean up values
-        [[ "$country" == "null" ]] && country="Unknown"
-        [[ "$region" == "null" ]] && region="Unknown"
-        [[ "$city" == "null" ]] && city="Unknown"
-        [[ "$isp" == "null" ]] && isp="Unknown"
-        [[ "$fetched_date" == "null" ]] && fetched_date="Unknown"
+        # First try jq (more reliable for JSON)
+        if command -v jq >/dev/null 2>&1; then
+            country=$(echo "$details" | jq -r '.country // "Unknown"' 2>/dev/null || echo "Unknown")
+            region=$(echo "$details" | jq -r '.region // "Unknown"' 2>/dev/null || echo "Unknown")
+            city=$(echo "$details" | jq -r '.city // "Unknown"' 2>/dev/null || echo "Unknown")
+            isp=$(echo "$details" | jq -r '.isp // "Unknown"' 2>/dev/null || echo "Unknown")
+            fetched_date=$(echo "$details" | jq -r '.fetched_date // "Unknown"' 2>/dev/null || echo "Unknown")
+        else
+            # Fallback to grep patterns (updated to match actual JSON)
+            country=$(echo "$details" | grep -o '"country":[[:space:]]*"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
+            region=$(echo "$details" | grep -o '"region":[[:space:]]*"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "Unknown")
+            city=$(echo "$details" | grep -o '"city":[[:space:]]*"[^"]*"' | cut-d'"' -f4 2>/dev/null || echo "Unknown")
+            isp=$(echo "$details" | grep -o '"isp":[[:space:]]*"[^"]*"' | cut-d'"' -f4 2>/dev/null || echo "Unknown")
+            fetched_date=$(echo "$details" | grep -o '"fetched_date":[[:space:]]*"[^"]*"' | cut-d'"' -f4 2>/dev/null || echo "Unknown")
+        fi
     fi
     
+    # Clean up values
+    [[ "$country" == "null" ]] && country="Unknown"
+    [[ "$region" == "null" ]] && region="Unknown"
+    [[ "$city" == "null" ]] && city="Unknown"
+    [[ "$isp" == "null" ]] && isp="Unknown"
+    [[ "$fetched_date" == "null" ]] && fetched_date="Unknown"
+    
     # Shorten for display
-    country=$(echo "$country" | cut -c1-10)
-    region=$(echo "$region" | cut -c1-12)
-    city=$(echo "$city" | cut -c1-12)
-    isp=$(echo "$isp" | cut -c1-22)
-    fetched_date=$(echo "$fetched_date" | cut -c1-14)
+    country=$(echo "$country" | cut -c1-12)
+    region=$(echo "$region" | cut -c1-15)
+    city=$(echo "$city" | cut -c1-15)
+    isp=$(echo "$isp" | cut -c1-25)
+    fetched_date=$(echo "$fetched_date" | cut -c1-15)
     
     printf "%-18s %-12s %-15s %-15s %-25s %-15s\n" \
       "$ip" "$country" "$region" "$city" "$isp" "$fetched_date"
