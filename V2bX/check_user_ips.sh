@@ -632,7 +632,7 @@ show_session_table() {
     loc=$(format_location_short "$details")
     
     printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" \
-      "$i" "$ip" "$loc" "$(fmt_ts "$first_ts")" "$(fmt_ts "$last_ts")" "$cnt" "$(human_time "$dur")"
+      "$i" "$ip" "$loc" "$(human_date "$first_ts")" "$(human_date "$last_ts")" "$cnt" "$(human_time "$dur")"
   done
 }
 
