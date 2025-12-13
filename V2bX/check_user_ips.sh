@@ -690,7 +690,17 @@ show_overlap_table() {
 # Cache Maintenance (Fixed)
 # ============================================================
 
+# ============================================================
+# Cache Maintenance (Disabled Version)
+# ============================================================
+
 cleanup_old_cache() {
+  # Temporarily disable cache cleanup to avoid jq errors
+  echo -e "${YELLOW}⚠️  Cache cleanup temporarily disabled${NC}"
+  return 0
+}
+
+cleanup_old_cache_1() {
   local cache_age_days=30
   local temp_file
   
