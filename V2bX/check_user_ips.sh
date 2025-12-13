@@ -6,7 +6,7 @@
 #          analyze sessions & overlaps, and score violations.
 # =============================================================
 
-VERSION="v5.0.4"
+VERSION="v5.0.4 tes"
 SERVICE_NAME="V2bX"
 JOURNAL_UNIT="-u ${SERVICE_NAME}"
 
@@ -98,7 +98,7 @@ pause() {
 }
 
 # ============================================================
-# IP Details Management (Simple Version)
+# IP Details Management (Fixed Version)
 # ============================================================
 
 validate_and_repair_cache() {
@@ -127,8 +127,8 @@ get_ip_details() {
     fi
     
     # Try to read from file cache
+    local cached_data=""
     if [[ -f "$IP_DETAILS_FILE" ]]; then
-        local cached_data
         cached_data=$(jq -r ".[\"$ip\"] // empty" "$IP_DETAILS_FILE" 2>/dev/null || true)
         
         if [[ -n "$cached_data" ]] && [[ "$cached_data" != "null" ]]; then
@@ -150,7 +150,7 @@ get_ip_details() {
                         echo "$cached_data"
                         return
                     else
-                        echo -e "  ${YELLOW}Cache for $ip is stale ($diff_days days old)${NC}"
+                        echo -e "  ${YELLOW}Cache for $ip is stale ($diff_days days old), fetching fresh data${NC}"
                     fi
                 fi
             fi
@@ -204,21 +204,49 @@ get_ip_details() {
     
     # Save to cache
     if [[ -n "$result_json" ]]; then
-        # Update memory cache
+        # Update memory cache immediately
         IP_LOCATION_CACHE["$ip"]="$result_json"
         
         # Update file cache
         if [[ -f "$IP_DETAILS_FILE" ]]; then
             local temp_file
             temp_file=$(mktemp)
-            jq --arg ip "$ip" --argjson data "$result_json" '.[$ip] = $data' "$IP_DETAILS_FILE" > "$temp_file" 2>/dev/null && mv "$temp_file" "$IP_DETAILS_FILE"
-            rm -f "$temp_file" 2>/dev/null || true
+            # Merge with existing cache
+            if jq -e . "$IP_DETAILS_FILE" >/dev/null 2>&1; then
+                jq --arg ip "$ip" --argjson data "$result_json" '.[$ip] = $data' "$IP_DETAILS_FILE" > "$temp_file" 2>/dev/null
+            else
+                jq -n --arg ip "$ip" --argjson data "$result_json" '.[$ip] = $data' > "$temp_file" 2>/dev/null
+            fi
+            
+            if jq -e . "$temp_file" >/dev/null 2>&1; then
+                mv "$temp_file" "$IP_DETAILS_FILE"
+                chmod 600 "$IP_DETAILS_FILE"
+                echo -e "  ${GREEN}✅ IP details saved to cache${NC}"
+            else
+                rm -f "$temp_file"
+                echo -e "  ${RED}❌ Failed to save IP details to cache${NC}"
+            fi
         fi
         
+        # Return the result
         echo "$result_json"
+    else
+        echo -e "  ${RED}❌ Failed to fetch IP details${NC}"
+        # Return minimal data
+        jq -n --arg ip "$ip" --arg fetched "$fetched_date" '{
+            ip: $ip,
+            country: "Unknown",
+            country_code: "XX",
+            region: "Unknown",
+            city: "Unknown",
+            isp: "Unknown",
+            fetched_date: $fetched,
+            source: "error"
+        }'
     fi
 }
 
+# Also update the format_location_short to be more robust
 format_location_short() {
     local details="$1"
     
@@ -230,7 +258,7 @@ format_location_short() {
     # Use jq to extract values
     local country_code city isp carrier short_city short_location
     
-    country_code=$(echo "$details" | jq -r '.country_code // "XX"' 2>/dev/null || echo "XX")
+    country_code=$(echo "$details" | jq -r '.country_code // .countryCode // "XX"' 2>/dev/null || echo "XX")
     city=$(echo "$details" | jq -r '.city // ""' 2>/dev/null || echo "")
     isp=$(echo "$details" | jq -r '.isp // ""' 2>/dev/null || echo "")
     
@@ -271,6 +299,7 @@ format_location_short() {
     
     echo "$short_location"
 }
+
 
 # ============================================================
 # Input & Period Selection
@@ -532,7 +561,7 @@ score_violation() {
 }
 
 # ============================================================
-# Display Functions
+# Display Functions (Fixed to capture output properly)
 # ============================================================
 
 show_ip_details_table() {
@@ -554,8 +583,9 @@ show_ip_details_table() {
   ips=($(printf "%s\n" "${ips[@]}" | sort -u))
 
   for ip in "${ips[@]}"; do
+    # Get IP details - CAPTURE THE OUTPUT
     local details
-    details=$(get_ip_details "$ip" 2>/dev/null || true)
+    details=$(get_ip_details "$ip")
     
     # Initialize defaults
     local country="Unknown"
@@ -566,11 +596,19 @@ show_ip_details_table() {
     
     # Parse JSON data
     if [[ -n "$details" ]]; then
+        # Debug: Show what we got
+        # echo -e "${YELLOW}DEBUG: Details for $ip: ${details:0:100}...${NC}" >&2
+        
         country=$(echo "$details" | jq -r '.country // "Unknown"' 2>/dev/null || echo "Unknown")
         region=$(echo "$details" | jq -r '.region // "Unknown"' 2>/dev/null || echo "Unknown")
         city=$(echo "$details" | jq -r '.city // "Unknown"' 2>/dev/null || echo "Unknown")
         isp=$(echo "$details" | jq -r '.isp // "Unknown"' 2>/dev/null || echo "Unknown")
         fetched_date=$(echo "$details" | jq -r '.fetched_date // "Unknown"' 2>/dev/null || echo "Unknown")
+        
+        # Debug: Show parsed values
+        # echo -e "${YELLOW}DEBUG: Parsed - Country: $country, City: $city${NC}" >&2
+    else
+        echo -e "${YELLOW}⚠️  No details returned for IP: $ip${NC}" >&2
     fi
     
     # Clean up values
@@ -596,7 +634,7 @@ show_ip_details_table() {
   echo -e "${YELLOW}ℹ️  Cache expires after 7 days, updates automatically when stale${NC}"
 }
 
-show_session_table() {
+show_session_table_1() {
   echo
   echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
   echo -e "${CYAN}${BOLD}                     User IP Session Summary (${PERIOD})${NC}"
@@ -613,6 +651,31 @@ show_session_table() {
     # Get location from cache or fetch
     local details
     details=$(get_ip_details "$ip" 2>/dev/null || true)
+    loc=$(format_location_short "$details")
+    
+    printf "%-3s %-18s %-25s %-20s %-20s %-8s %-10s\n" \
+      "$i" "$ip" "$loc" "$(fmt_ts "$first_ts")" "$(fmt_ts "$last_ts")" "$cnt" "$(human_time "$dur")"
+  done
+}
+
+
+show_session_table() {
+  echo
+  echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}${BOLD}                     User IP Session Summary (${PERIOD})${NC}"
+  echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
+  
+  printf "%-3s %-18s %-25s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
+  echo -e "${BLUE}──────────────────────────────────────────────────────────────────────────────────────${NC}"
+
+  local i=0
+  sort -t"|" -k4,4n "$TMP_SESSIONS" | while IFS="|" read -r ip first_ts last_ts first_ep last_ep cnt; do
+    i=$((i+1))
+    local dur=$((last_ep - first_ep))
+    
+    # Get location from cache or fetch
+    local details
+    details=$(get_ip_details "$ip")
     loc=$(format_location_short "$details")
     
     printf "%-3s %-18s %-25s %-20s %-20s %-8s %-10s\n" \
