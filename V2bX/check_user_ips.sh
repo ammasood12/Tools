@@ -243,7 +243,7 @@ show_ip_details_table() {
   ips=($(printf "%s\n" "${ips[@]}" | sort -u))
 
   for ip in "${ips[@]}"; do
-    echo -e "${YELLOW}DEBUG: Processing IP: $ip${NC}" >&2
+    # echo -e "${YELLOW}DEBUG: Processing IP: $ip${NC}" >&2
     
     local details
     details=$(get_ip_details_simple "$ip" 2>/dev/null || true)
@@ -257,8 +257,8 @@ show_ip_details_table() {
     
     # Try to parse JSON
     if [[ -n "$details" ]]; then
-        echo -e "${YELLOW}DEBUG: Got details, length: ${#details}${NC}" >&2
-        echo -e "${YELLOW}DEBUG: Details: $details${NC}" >&2
+        # echo -e "${YELLOW}DEBUG: Got details, length: ${#details}${NC}" >&2
+        # echo -e "${YELLOW}DEBUG: Details: $details${NC}" >&2
         
         # Use jq to parse
         country=$(echo "$details" | jq -r '.country // "Unknown"' 2>/dev/null || echo "Unknown")
@@ -267,7 +267,7 @@ show_ip_details_table() {
         isp=$(echo "$details" | jq -r '.isp // "Unknown"' 2>/dev/null || echo "Unknown")
         fetched_date=$(echo "$details" | jq -r '.fetched_date // "Unknown"' 2>/dev/null || echo "Unknown")
         
-        echo -e "${YELLOW}DEBUG: Parsed - Country: $country, Region: $region, City: $city${NC}" >&2
+        # echo -e "${YELLOW}DEBUG: Parsed - Country: $country, Region: $region, City: $city${NC}" >&2
     else
         echo -e "${YELLOW}DEBUG: No details returned${NC}" >&2
     fi
