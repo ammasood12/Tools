@@ -40,10 +40,7 @@ print_header() {
     clear
     echo -e "${BLUE}${BOLD}"
     echo "╔═══════════════════════════════════════════════════════╗"
-    echo "║                                                       ║"
-    echo "║           $SCRIPT_NAME                    ║"
-    echo "║                 ${DIM}Version: $VERSION${BLUE}${BOLD}                   ║"
-    echo "║                                                       ║"
+    echo "               $SCRIPT_NAME $VERSION"
     echo "╚═══════════════════════════════════════════════════════╝"
     echo -e "${RESET}"
 }
