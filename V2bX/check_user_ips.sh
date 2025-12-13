@@ -618,7 +618,7 @@ show_session_table() {
   echo -e "${CYAN}${BOLD}                     User IP Session Summary (${PERIOD})${NC}"
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
-  printf "%-3s %-18s %-25s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
+  printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
   echo -e "${BLUE}──────────────────────────────────────────────────────────────────────────────────────${NC}"
 
   local i=0
@@ -631,7 +631,7 @@ show_session_table() {
     details=$(get_ip_details "$ip")
     loc=$(format_location_short "$details")
     
-    printf "%-3s %-18s %-25s %-20s %-20s %-8s %-10s\n" \
+    printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" \
       "$i" "$ip" "$loc" "$(fmt_ts "$first_ts")" "$(fmt_ts "$last_ts")" "$cnt" "$(human_time "$dur")"
   done
 }
