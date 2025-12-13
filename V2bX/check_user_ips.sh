@@ -98,7 +98,6 @@ pause() {
 }
 
 
-
 # ============================================================
 # IP Details Management (CLEAN WORKING VERSION)
 # ============================================================
@@ -557,7 +556,7 @@ show_ip_details_table() {
   echo -e "${CYAN}${BOLD}                                   Detailed IP Information                                          ${NC}"
   echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
-  printf "%-18s %-12s %-15s %-15s %-25s %-15s\n" "IP Address" "Country" "Region" "City" "ISP" "Last Updated"
+  printf "%-18s %-8s %-10s %-12s %-30s %-10s\n" "IP Address" "Country" "Region" "City" "ISP" "Last Updated"
   echo -e "${BLUE}──────────────────────────────────────────────────────────────────────────────────────────────────────────${NC}"
 
   # Get unique IPs from sessions
@@ -600,11 +599,11 @@ show_ip_details_table() {
     # Shorten for display
     country=$(echo "$country" | cut -c1-12)
     region=$(echo "$region" | cut -c1-15)
-    city=$(echo "$city" | cut -c1-15)
-    isp=$(echo "$isp" | cut -c1-25)
-    fetched_date=$(echo "$fetched_date" | cut -c1-15)
+    city=$(echo "$city" | cut -c1-12)
+    isp=$(echo "$isp" | cut -c1-30)
+    fetched_date=$(echo "$fetched_date" | cut -c1-10)
     
-    printf "%-18s %-12s %-15s %-15s %-25s %-15s\n" \
+    printf "%-18s %-8s %-10s %-12s %-30s %-10s\n" \
       "$ip" "$country" "$region" "$city" "$isp" "$fetched_date"
   done
   
@@ -692,7 +691,7 @@ main() {
   
   # Show detailed IP table first
   show_ip_details_table
-  pause
+  # pause
   
   # Then show session table
   show_session_table
