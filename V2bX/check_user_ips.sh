@@ -615,7 +615,7 @@ show_ip_details_table() {
 show_session_table() {
   echo
   echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}${BOLD}                     User IP Session Summary (${PERIOD})${NC}"
+  echo -e "${CYAN}${BOLD}         User IP Session Summary (${PERIOD}) - $(date '+%Y-%m-%d %H:%M:%S')${NC}"
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
   printf "%-3s %-18s %-18s %-20s %-20s %-8s %-10s\n" "#" "IP" "Location" "First Seen" "Last Seen" "Count" "Duration"
