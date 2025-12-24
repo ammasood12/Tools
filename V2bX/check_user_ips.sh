@@ -619,7 +619,7 @@ show_session_table() {
   echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
   
   printf "%-3s %-18s %-10s %-18s %-20s %-20s %-8s\n" \
-         "IP" "Location" "Duration" "First Seen" "Last Seen" "Count"
+          "#" "IP" "Location" "Duration" "First Seen" "Last Seen" "Count"
   echo -e "${BLUE}──────────────────────────────────────────────────────────────────────────────────────${NC}"
 
   local i=0
